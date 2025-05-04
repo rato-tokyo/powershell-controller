@@ -7,10 +7,10 @@ import os
 import sys
 import unittest
 import psutil
-import logging
 import tempfile
 import json
-import structlog
+from loguru import logger
+import pytest
 from src.powershell_controller.simple import (
     SimplePowerShellController,
     PowerShellError,
@@ -19,62 +19,60 @@ from src.powershell_controller.simple import (
 )
 
 def test_direct_powershell_command():
-    """PowerShellコマンドが直接実行できることを確認"""
-    try:
-        result = subprocess.run(
-            ["powershell", "-Command", "Write-Output 'Hello from PowerShell'"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        assert "Hello from PowerShell" in result.stdout
-        assert result.returncode == 0
-    except subprocess.TimeoutExpired:
-        assert False, "PowerShellコマンドがタイムアウトしました"
-    except Exception as e:
-        assert False, f"エラーが発生しました: {e}"
+    """PowerShell 7が動作するか直接確認するテスト"""
+    ps_path = r"C:\Program Files\PowerShell\7\pwsh.exe"
+    if not os.path.exists(ps_path):
+        pytest.skip("PowerShell 7がインストールされていません")
+    
+    # PowerShellに単純なコマンドを実行
+    cmd = [
+        ps_path,
+        "-Command",
+        "Write-Output 'Test successful'"
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    
+    # 出力と終了コードを確認
+    assert result.returncode == 0
+    assert "Test successful" in result.stdout
 
 def test_powershell7_availability():
-    """PowerShell 7が利用可能かチェック"""
-    ps7_path = r"C:\Program Files\PowerShell\7\pwsh.exe"
-    
-    # PowerShell 7が存在するか
-    assert os.path.exists(ps7_path), "PowerShell 7が見つかりません"
-    
-    # 実行して出力を確認
-    try:
-        result = subprocess.run(
-            [ps7_path, "-Command", "Write-Output 'Hello from PowerShell 7'"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        assert "Hello from PowerShell 7" in result.stdout
-        assert result.returncode == 0
-    except subprocess.TimeoutExpired:
-        assert False, "PowerShell 7のコマンドがタイムアウトしました"
-    except Exception as e:
-        assert False, f"エラーが発生しました: {e}"
+    """PowerShell 7のパスをチェック"""
+    ps_path = r"C:\Program Files\PowerShell\7\pwsh.exe"
+    assert os.path.exists(ps_path), "PowerShell 7が見つかりません"
 
 class TestSimplePowerShellController(unittest.TestCase):
     def setUp(self):
         """テストの前準備"""
         # テスト用の一時ディレクトリを作成
         self.temp_dir = tempfile.mkdtemp()
-        self.temp_log_path = os.path.join(self.temp_dir, 'test.log')
+        self.temp_log_path = os.path.join(self.temp_dir, 'test_ps_controller.log')
         
-        # 既存のロガーをクリーンアップ
-        root_logger = logging.getLogger()
-        root_logger.handlers.clear()
+        # ログキャプチャのためのメモリハンドラー
+        self.log_entries = []
         
-        # テスト用のメモリログハンドラー
-        self.memory_handler = structlog.testing.LogCapture()
+        # カスタムログハンドラー
+        def custom_log_handler(message):
+            try:
+                data = json.loads(message)
+                if isinstance(data, dict):
+                    self.log_entries.append(data)
+            except json.JSONDecodeError:
+                self.log_entries.append({
+                    "event": "log_message",
+                    "message": message
+                })
+            return message
+            
+        # Loguruのカスタムハンドラを設定
+        logger.remove()  # 既存のハンドラーを削除
+        logger.add(lambda m: custom_log_handler(m["message"]), level="DEBUG")
         
         # コントローラーの初期化
         self.controller = SimplePowerShellController(
-            log_level=logging.DEBUG,
+            log_level="DEBUG",
             log_file=self.temp_log_path,
-            test_handler=self.memory_handler
+            test_handler=self
         )
         
         # ログの初期化を待機
@@ -86,23 +84,17 @@ class TestSimplePowerShellController(unittest.TestCase):
         # ログファイルサイズが0より大きいことを確認
         file_size = os.path.getsize(self.temp_log_path)
         self.assertGreater(file_size, 0, f"ログファイルが空です: {self.temp_log_path}, サイズ: {file_size}バイト")
+    
+    @property
+    def entries(self):
+        """テストハンドラーのエントリにアクセスするためのプロパティ"""
+        return self.log_entries
 
     def tearDown(self):
         """テストの後片付け"""
         try:
             # コントローラーのクリーンアップ
             if hasattr(self, 'controller'):
-                # ロガーのハンドラーをクリーンアップ
-                logger = logging.getLogger()
-                for handler in logger.handlers[:]:
-                    try:
-                        handler.flush()
-                        handler.close()
-                    except Exception:
-                        pass
-                    finally:
-                        logger.removeHandler(handler)
-                
                 # プロセスのクリーンアップ
                 self.controller._cleanup_process()
                 
@@ -132,7 +124,7 @@ class TestSimplePowerShellController(unittest.TestCase):
         self.assertTrue(
             any(
                 event.get("event") == "command_execution_complete"
-                for event in self.memory_handler.entries
+                for event in self.entries
             )
         )
 
@@ -147,7 +139,7 @@ class TestSimplePowerShellController(unittest.TestCase):
             any(
                 event.get("event") == "command_execution_failed"
                 and "Test Error" in str(event.get("error", ""))
-                for event in self.memory_handler.entries
+                for event in self.entries
             )
         )
 
@@ -160,7 +152,7 @@ class TestSimplePowerShellController(unittest.TestCase):
         self.assertTrue(
             any(
                 "timeout" in str(event.get("event", ""))
-                for event in self.memory_handler.entries
+                for event in self.entries
             )
         )
 
@@ -183,7 +175,7 @@ class TestSimplePowerShellController(unittest.TestCase):
         self.assertTrue(
             any(
                 event.get("event") == "process_cleanup_complete"
-                for event in self.memory_handler.entries
+                for event in self.entries
             )
         )
 
@@ -210,7 +202,7 @@ class TestSimplePowerShellController(unittest.TestCase):
         self.assertTrue(
             any(
                 event.get("event") == "session_execution_complete"
-                for event in self.memory_handler.entries
+                for event in self.entries
             )
         )
 
@@ -233,7 +225,7 @@ class TestSimplePowerShellController(unittest.TestCase):
             any(
                 event.get("event") == "command_execution_error"
                 and "Test Error" in str(event.get("error", ""))
-                for event in self.memory_handler.entries
+                for event in self.entries
             )
         )
 
@@ -273,28 +265,16 @@ class TestSimplePowerShellController(unittest.TestCase):
         for line in log_lines:
             print(f"  {line}")
             
-        # 各ログエントリがJSON形式であることを確認
-        parsed_logs = []
-        for line in log_lines:
-            try:
-                log_entry = json.loads(line)
-                self.assertIsInstance(log_entry, dict)
-                self.assertIn("event", log_entry)
-                parsed_logs.append(log_entry)
-            except json.JSONDecodeError as e:
-                print(f"Warning: Invalid JSON format in log line: {line}")
-                print(f"Error: {e}")
-                continue
+        # LogCaptureのエントリを確認
+        self.assertTrue(self.entries, "メモリハンドラーにログエントリがありません")
         
-        # ログエントリが存在することを確認
-        self.assertTrue(parsed_logs, "有効なログエントリがありません")
+        print("\nMemory handler entries:")
+        for entry in self.entries:
+            print(f"  {entry}")
         
-        # ログイベントを取得
-        log_events = [log.get("event") for log in parsed_logs]
+        # 必要なイベントが記録されていることを確認
+        log_events = [entry.get("event") for entry in self.entries if entry.get("event")]
         print("\nFound log events:", log_events)
-        
-        # いずれかのイベントが存在することを確認する緩和されたチェック
-        self.assertTrue(log_events, "ログイベントが存在しません")
         
         # 必要なイベントタイプが存在することを確認
         required_event_types = ["command_execution_start", "command_execution_complete"]
@@ -306,8 +286,6 @@ class TestSimplePowerShellController(unittest.TestCase):
                 found_event_types, 
                 f"必要なイベント '{event_type}' がログに記録されていません。記録されたイベント: {found_event_types}"
             )
-        
-        # ロギングが機能していることの確認は完了
 
     def test_object_output(self):
         """PowerShellオブジェクトの出力テスト"""

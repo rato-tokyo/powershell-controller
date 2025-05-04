@@ -1,0 +1,7 @@
+loguru>=0.7.0
+psutil>=7.0.0
+
+# 開発およびテスト用
+pytest>=8.3.0
+pytest-mock>=3.10.0
+pytest-cov>=4.0.0 

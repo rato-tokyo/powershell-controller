@@ -5,43 +5,34 @@ MCPのためのセッション管理とコマンド実行に特化
 import subprocess
 import os
 import sys
-import logging
 import tempfile
 import uuid
 import time
 import psutil
 import json
-import structlog
-from logging.handlers import RotatingFileHandler
+from loguru import logger
 
-# structlogの設定
-def setup_structlog(log_level=logging.INFO, log_file=None, max_log_size=10*1024*1024, test_handler=None):
+# Loguruのロギング設定
+def setup_logging(log_level="INFO", log_file=None, test_handler=None):
     """
-    structlogの設定を行う
+    Loguruを使ったロギング設定
     
     Args:
-        log_level: ログレベル
+        log_level: ログレベル ("INFO", "DEBUG", "ERROR" など)
         log_file: ログファイルのパス
-        max_log_size: ログファイルの最大サイズ
         test_handler: テスト用のログハンドラー（オプション）
         
     Returns:
-        structlog.BoundLogger: 設定済みのstructlogロガー
+        logger: 設定済みのLoguru logger
     """
-    # 基本的なロガーの設定
-    logging.basicConfig(level=log_level, format='%(message)s')
+    # 既存のハンドラーを削除
+    logger.remove()
     
-    # 既存のハンドラーをクリア
-    root_logger = logging.getLogger()
-    for handler in list(root_logger.handlers):
-        root_logger.removeHandler(handler)
+    # 標準出力へのロガー設定
+    logger.add(sys.stdout, level=log_level, 
+              format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level} | {message}")
     
-    # 標準出力へのハンドラー
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(log_level)
-    root_logger.addHandler(console_handler)
-    
-    # ファイルへのハンドラー（指定された場合）
+    # ログファイルへの出力設定
     if log_file:
         try:
             # ログディレクトリが存在しない場合は作成
@@ -49,70 +40,27 @@ def setup_structlog(log_level=logging.INFO, log_file=None, max_log_size=10*1024*
             if log_dir and not os.path.exists(log_dir):
                 os.makedirs(log_dir)
             
-            # 通常のFileHandlerを使用
-            file_handler = logging.FileHandler(log_file, mode='w', encoding='utf-8')
-            file_handler.setLevel(log_level)
-            root_logger.addHandler(file_handler)
+            # ファイルにJSON形式でログを出力
+            logger.add(
+                log_file,
+                level=log_level,
+                format="{time:YYYY-MM-DDTHH:mm:ss.SSS}Z | {level} | {message}",
+                rotation="10 MB",
+                encoding="utf-8",
+                serialize=True  # JSON形式で出力
+            )
             
-            # テスト用のログファイル作成確認
+            # ログファイル初期化ログを直接書き込み
             with open(log_file, "w", encoding="utf-8") as f:
                 f.write(json.dumps({
+                    "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "level": "INFO",
                     "event": "log_file_initialized",
-                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
                     "log_file": log_file
                 }) + "\n")
                 
         except Exception as e:
             print(f"Error setting up log file: {e}")
-    
-    # structlogの設定
-    structlog.configure(
-        processors=[
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.add_logger_name,
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer(sort_keys=True),
-        ],
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
-    )
-    
-    # テストハンドラーが指定されている場合は追加
-    if test_handler:
-        # テストハンドラーをstructlogに接続
-        structlog.configure(
-            processors=[
-                # 既存のプロセッサを保持
-                structlog.stdlib.add_log_level,
-                structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"),
-                structlog.processors.StackInfoRenderer(),
-                structlog.processors.format_exc_info,
-                structlog.processors.UnicodeDecoder(),
-                test_handler,  # テストハンドラーを追加
-                structlog.processors.JSONRenderer(sort_keys=True),
-            ],
-            logger_factory=structlog.stdlib.LoggerFactory(),
-            wrapper_class=structlog.stdlib.BoundLogger,
-            cache_logger_on_first_use=True,
-        )
-    
-    logger = structlog.get_logger(__name__)
-    
-    # ログファイルが指定されている場合、直接書き込む
-    if log_file:
-        try:
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps({
-                    "event": "powershell_init_start",
-                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S")
-                }) + "\n")
-        except Exception as e:
-            print(f"Error writing to log file: {e}")
     
     return logger
 
@@ -138,60 +86,71 @@ class PowerShellTimeoutError(PowerShellError):
 class SimplePowerShellController:
     """PowerShell 7のセッション管理とコマンド実行を行うコントローラー"""
     
-    def __init__(self, log_level=logging.INFO, log_file=None, max_log_size=10*1024*1024, test_handler=None):
+    def __init__(self, log_level="INFO", log_file=None, test_handler=None):
         """
         PowerShell 7コントローラーを初期化
         
         Args:
-            log_level: ログレベル（デフォルト：INFO）
+            log_level: ログレベル（デフォルト："INFO"）
             log_file: ログファイルのパス（デフォルト：None）
-            max_log_size: ログファイルの最大サイズ（デフォルト：10MB）
             test_handler: テスト用のログハンドラー（オプション）
+                         entriesプロパティを持つオブジェクトが期待されます
         """
         # ログ設定を初期化
-        self.logger = setup_structlog(log_level, log_file, max_log_size, test_handler)
+        self.logger = setup_logging(log_level, log_file)
         self.log_file = log_file
         self.ps_path = r"C:\Program Files\PowerShell\7\pwsh.exe"
         self.process = None
         self.pid = None
+        self.test_handler = test_handler
         
         if not os.path.exists(self.ps_path):
-            self._write_log("powershell_not_found", {"error": "PowerShell 7が見つかりません", "path": self.ps_path})
+            self._log_event("powershell_not_found", {"error": "PowerShell 7が見つかりません", "path": self.ps_path}, "ERROR")
             raise FileNotFoundError(f"PowerShell 7が見つかりません: {self.ps_path}")
             
         try:
             result = self._run_simple_command("Write-Output 'PowerShell 7 Test'")
             
             if "PowerShell 7 Test" not in result:
-                self._write_log("powershell_init_failed", {"error": "PowerShell 7の動作確認に失敗しました", "result": result})
+                self._log_event("powershell_init_failed", {"error": "PowerShell 7の動作確認に失敗しました", "result": result}, "ERROR")
                 raise RuntimeError("PowerShell 7の動作確認に失敗しました")
             
-            self._write_log("powershell_init_complete", {"result": result})
+            self._log_event("powershell_init_complete", {"result": result})
             
         except Exception as e:
-            self._write_log("powershell_init_error", {"error": str(e)})
+            self._log_event("powershell_init_error", {"error": str(e)}, "ERROR")
             raise
     
-    def _write_log(self, event, data=None):
-        """ログを書き込む（ファイルとstructlogの両方）"""
-        # structlogでログを出力
-        data = data or {}
-        if event == "powershell_not_found":
-            self.logger.error(event, **data)
-        elif event == "powershell_init_failed" or event == "powershell_init_error":
-            self.logger.error(event, **data)
-        else:
-            self.logger.info(event, **data)
+    def _log_event(self, event, data=None, level="INFO"):
+        """
+        イベントログを記録する
         
-        # ログファイルが指定されている場合、直接書き込む
+        Args:
+            event: イベント名
+            data: 追加データ（辞書形式）
+            level: ログレベル（"INFO", "ERROR" など）
+        """
+        data = data or {}
+        log_entry = {"event": event, **data}
+        
+        # loguruでログを記録
+        if level == "ERROR":
+            self.logger.error(json.dumps(log_entry))
+        elif level == "WARNING":
+            self.logger.warning(json.dumps(log_entry))
+        elif level == "DEBUG":
+            self.logger.debug(json.dumps(log_entry))
+        else:
+            self.logger.info(json.dumps(log_entry))
+        
+        # テストハンドラーにもログを記録 (存在する場合)
+        if self.test_handler and hasattr(self.test_handler, "entries"):
+            self.test_handler.entries.append(log_entry)
+        
+        # ログファイルが指定されている場合、直接書き込む（確実性のため）
         if self.log_file:
             try:
-                log_entry = {
-                    "event": event,
-                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S")
-                }
-                log_entry.update(data or {})
-                
+                log_entry["time"] = time.strftime("%Y-%m-%dT%H:%M:%S")
                 with open(self.log_file, "a", encoding="utf-8") as f:
                     f.write(json.dumps(log_entry) + "\n")
             except Exception as e:
@@ -230,12 +189,12 @@ class SimplePowerShellController:
                 except psutil.NoSuchProcess:
                     pass
                 
-            self._write_log("process_cleanup_complete", {"pid": self.pid})
+            self._log_event("process_cleanup_complete", {"pid": self.pid})
             
         except psutil.NoSuchProcess:
-            self._write_log("process_already_terminated", {"pid": self.pid})
+            self._log_event("process_already_terminated", {"pid": self.pid})
         except Exception as e:
-            self._write_log("process_cleanup_error", {"pid": self.pid, "error": str(e)})
+            self._log_event("process_cleanup_error", {"pid": self.pid, "error": str(e)})
         finally:
             self.pid = None
             self.process = None
@@ -255,7 +214,7 @@ class SimplePowerShellController:
             PowerShellExecutionError: コマンド実行に失敗した場合
             PowerShellTimeoutError: タイムアウトした場合
         """
-        self._write_log("command_execution_start", {"command": command, "timeout": timeout})
+        self._log_event("command_execution_start", {"command": command, "timeout": timeout})
             
         start_time = time.time()
         
@@ -269,13 +228,13 @@ class SimplePowerShellController:
             )
             self.pid = self.process.pid
             
-            self._write_log("process_started", {"pid": self.pid, "command": command})
+            self._log_event("process_started", {"pid": self.pid, "command": command})
             
             stdout, stderr = self.process.communicate(timeout=timeout)
             execution_time = time.time() - start_time
             
             if self.process.returncode != 0:
-                self._write_log("command_execution_failed", {
+                self._log_event("command_execution_failed", {
                     "command": command,
                     "error": stderr,
                     "return_code": self.process.returncode,
@@ -288,7 +247,7 @@ class SimplePowerShellController:
                     stderr=stderr
                 )
             
-            self._write_log("command_execution_complete", {
+            self._log_event("command_execution_complete", {
                 "command": command,
                 "execution_time": execution_time,
                 "output": stdout.strip()
@@ -297,7 +256,7 @@ class SimplePowerShellController:
             return stdout.strip()
             
         except subprocess.TimeoutExpired:
-            self._write_log("command_timeout", {
+            self._log_event("command_timeout", {
                 "command": command,
                 "timeout": timeout,
                 "execution_time": time.time() - start_time
@@ -308,7 +267,7 @@ class SimplePowerShellController:
             )
             
         except Exception as e:
-            self._write_log("command_execution_error", {
+            self._log_event("command_execution_error", {
                 "command": command,
                 "error": str(e),
                 "execution_time": time.time() - start_time
@@ -394,7 +353,7 @@ class SimplePowerShellController:
             }}
             """
             
-        self._write_log("command_execution_start", {"command": command})
+        self._log_event("command_execution_start", {"command": command})
         
         try:
             output = self._run_simple_command(ps_script, timeout)
@@ -402,7 +361,7 @@ class SimplePowerShellController:
             
             if not result["Success"]:
                 error_info = result["Error"]
-                self._write_log("command_execution_failed", {
+                self._log_event("command_execution_failed", {
                     "command": command,
                     "error": error_info["Message"],
                     "error_info": error_info
@@ -430,11 +389,11 @@ class SimplePowerShellController:
             if isinstance(output, (dict, list)):
                 output = json.dumps(output)
             
-            self._write_log("command_execution_complete", {"command": command})
+            self._log_event("command_execution_complete", {"command": command})
             return output
             
         except json.JSONDecodeError as e:
-            self._write_log("json_decode_error", {
+            self._log_event("json_decode_error", {
                 "command": command,
                 "error": str(e),
                 "output": output
@@ -442,14 +401,14 @@ class SimplePowerShellController:
             raise PowerShellExecutionError(f"JSON解析エラー: {str(e)}", command=command)
             
         except PowerShellTimeoutError:
-            self._write_log("command_timeout", {
+            self._log_event("command_timeout", {
                 "command": command,
                 "timeout": timeout
             })
             raise
             
         except Exception as e:
-            self._write_log("command_execution_error", {
+            self._log_event("command_execution_error", {
                 "command": command,
                 "error": str(e)
             })
@@ -466,7 +425,7 @@ class SimplePowerShellController:
         Returns:
             list: 各コマンドの実行結果
         """
-        self._write_log("session_execution_start", {"command_count": len(commands)})
+        self._log_event("session_execution_start", {"command_count": len(commands)})
         results = []
         has_error = False
         
@@ -476,7 +435,7 @@ class SimplePowerShellController:
                     result = self.execute_command(command, timeout)
                     results.append(result)
                 except PowerShellExecutionError as e:
-                    self._write_log("command_execution_failed", {
+                    self._log_event("command_execution_failed", {
                         "command_index": i,
                         "error": str(e)
                     })
@@ -485,14 +444,14 @@ class SimplePowerShellController:
                     continue
                     
             if has_error:
-                self._write_log("session_completed_with_errors")
+                self._log_event("session_completed_with_errors")
             else:
-                self._write_log("session_execution_complete")
+                self._log_event("session_execution_complete")
                 
             return results
             
         except Exception as e:
-            self._write_log("session_execution_error", {"error": str(e)})
+            self._log_event("session_execution_error", {"error": str(e)})
             raise
             
         finally:
