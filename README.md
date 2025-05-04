@@ -1,47 +1,43 @@
-# PowerShell Controller
+# PowerShell Controller for MCP
 
-PowerShell 7をPythonから制御するためのパッケージです。セッションを維持したままPowerShellコマンドを実行することができます。
+PowerShell 7をPythonから制御するためのシンプルなパッケージです。MCPのためのセッション管理とコマンド実行に特化しています。
 
 ## 機能
 
-- PowerShellセッションの維持
-- コマンドの実行と結果の取得
-- セッション状態の保持（変数、カレントディレクトリなど）
-- エラーハンドリング
-- バックグラウンドジョブのサポート
+- PowerShellセッションでのコマンド実行
+- 複数コマンドの連続実行
+- 確実なプロセス管理
+- シンプルなエラーハンドリング
 
 ## インストール
 
 開発版をインストールする場合：
 
 ```bash
-pip install -e .[dev]
+pip install -e .
 ```
 
 ## 使用例
 
 ```python
-from powershell_controller import PowerShellController
+from powershell_controller.simple import SimplePowerShellController
 
 # コントローラーの初期化
-controller = PowerShellController()
+controller = SimplePowerShellController()
 
-try:
-    # コマンドの実行
-    result = controller.execute_command("Write-Output 'Hello, PowerShell!'")
-    print(result)  # 出力: Hello, PowerShell!
+# 単一コマンドの実行
+result = controller.execute_command("Write-Output 'Hello, PowerShell!'")
+print(result)  # 出力: Hello, PowerShell!
 
-    # ディレクトリの移動
-    controller.execute_command("cd ..")
-    
-    # 変数の設定と使用
-    controller.execute_command("$test_var = 'test_value'")
-    result = controller.execute_command("Write-Output $test_var")
-    print(result)  # 出力: test_value
-
-finally:
-    # セッションの終了
-    controller.close()
+# 複数コマンドの実行
+commands = [
+    "Write-Output 'Command 1'",
+    "Write-Output 'Command 2'",
+    "Write-Output 'Command 3'"
+]
+results = controller.execute_commands_in_session(commands)
+for i, result in enumerate(results):
+    print(f"Command {i+1} output: {result}")
 ```
 
 ## テスト
@@ -60,16 +56,22 @@ git clone https://github.com/yourusername/powershell_controller.git
 cd powershell_controller
 ```
 
-2. 開発用依存関係のインストール：
+2. 依存関係のインストール：
 ```bash
-pip install -e .[dev]
+pip install -e .
 ```
 
 ## 要件
 
-- Python 3.6以上
+- Python 3.11以上
 - PowerShell 7（Path: C:\Program Files\PowerShell\7\pwsh.exe）
 - Windows OS
+- psutil
+
+## 注意事項
+
+このパッケージは、MCPのためのPowerShell制御に特化して設計されています。
+シンプルで堅牢な実装を重視し、必要最小限の機能のみを提供します。
 
 ## ライセンス
 

@@ -1,4 +1,9 @@
 from setuptools import setup, find_packages
+import io
+
+# README.mdをUTF-8で読み込む
+with io.open("README.md", encoding="utf-8") as f:
+    long_description = f.read()
 
 setup(
     name="powershell_controller",
@@ -16,7 +21,7 @@ setup(
     author="Your Name",
     author_email="your.email@example.com",
     description="PowerShell 7 controller for Python",
-    long_description=open("README.md").read(),
+    long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/yourusername/powershell_controller",
     classifiers=[

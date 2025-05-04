@@ -1,0 +1,10 @@
+README.md
+setup.py
+src/powershell_controller/__init__.py
+src/powershell_controller/controller.py
+src/powershell_controller.egg-info/PKG-INFO
+src/powershell_controller.egg-info/SOURCES.txt
+src/powershell_controller.egg-info/dependency_links.txt
+src/powershell_controller.egg-info/requires.txt
+src/powershell_controller.egg-info/top_level.txt
+tests/test_powershell_controller.py
