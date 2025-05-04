@@ -32,44 +32,39 @@ def setup_logging(log_level="INFO", log_file=None, test_handler=None):
     logger.add(sys.stdout, level=log_level, 
               format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level} | {message}")
     
-    # ログファイルへの出力設定
+    # ファイルへのロギングが指定されている場合
     if log_file:
-        try:
-            # ログディレクトリが存在しない場合は作成
-            log_dir = os.path.dirname(log_file)
-            if log_dir and not os.path.exists(log_dir):
-                os.makedirs(log_dir)
-            
-            # ファイルにJSON形式でログを出力
-            logger.add(
-                log_file,
-                level=log_level,
-                format="{time:YYYY-MM-DDTHH:mm:ss.SSS}Z | {level} | {message}",
-                rotation="10 MB",
-                encoding="utf-8",
-                serialize=True  # JSON形式で出力
-            )
-            
-            # ログファイル初期化ログを直接書き込み
-            with open(log_file, "w", encoding="utf-8") as f:
-                f.write(json.dumps({
-                    "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                    "level": "INFO",
-                    "event": "log_file_initialized",
-                    "log_file": log_file
-                }) + "\n")
-                
-        except Exception as e:
-            print(f"Error setting up log file: {e}")
+        logger.add(log_file, level=log_level,
+                  format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level} | {message}",
+                  rotation="1 day", retention="7 days")
+    
+    # テストハンドラーが指定されている場合
+    if test_handler:
+        logger.add(test_handler, level=log_level)
     
     return logger
 
+def _log_event(event_type, data=None, level="INFO"):
+    """
+    イベントをログに記録
+    
+    Args:
+        event_type: イベントの種類
+        data: イベントに関連するデータ（オプション）
+        level: ログレベル（デフォルト："INFO"）
+    """
+    log_data = {
+        "event": event_type,
+        "timestamp": time.time()
+    }
+    if data:
+        log_data.update(data)
+    
+    log_message = json.dumps(log_data)
+    getattr(logger, level.lower())(log_message)
+
 class PowerShellError(Exception):
     """PowerShell実行に関連するエラーの基底クラス"""
-    pass
-
-class PowerShellNotFoundError(PowerShellError):
-    """PowerShell 7が見つからない場合のエラー"""
     pass
 
 class PowerShellExecutionError(PowerShellError):
@@ -456,6 +451,48 @@ class SimplePowerShellController:
             
         finally:
             self._cleanup_process()
+
+    def execute_script(self, script_content, timeout=30):
+        """
+        PowerShellスクリプトを実行
+        
+        Args:
+            script_content: 実行するPowerShellスクリプトの内容
+            timeout: タイムアウト時間（秒）
+            
+        Returns:
+            str: スクリプトの実行結果
+            
+        Raises:
+            PowerShellExecutionError: スクリプト実行に失敗した場合
+            PowerShellTimeoutError: タイムアウトした場合
+        """
+        self._log_event("script_execution_start", {"script_length": len(script_content)})
+        
+        try:
+            # 一時ファイルにスクリプトを保存
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.ps1', delete=False, encoding='utf-8') as f:
+                f.write(script_content)
+                script_path = f.name
+            
+            try:
+                # スクリプトを実行
+                command = f". '{script_path}'"
+                result = self.execute_command(command, timeout)
+                
+                self._log_event("script_execution_complete")
+                return result
+                
+            finally:
+                # 一時ファイルを削除
+                try:
+                    os.unlink(script_path)
+                except Exception as e:
+                    self._log_event("script_cleanup_error", {"error": str(e)}, "WARNING")
+                
+        except Exception as e:
+            self._log_event("script_execution_error", {"error": str(e)})
+            raise
 
     def __del__(self):
         """デストラクタ：プロセスのクリーンアップを確実に行う"""

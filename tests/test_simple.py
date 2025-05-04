@@ -11,7 +11,7 @@ import tempfile
 import json
 from loguru import logger
 import pytest
-from src.powershell_controller.simple import (
+from powershell_controller.simple import (
     SimplePowerShellController,
     PowerShellError,
     PowerShellExecutionError,
