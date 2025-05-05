@@ -1,38 +1,34 @@
-from setuptools import setup, find_packages
+"""PowerShell 7コントローラーのセットアップスクリプト"""
+
 import os
+from setuptools import find_packages, setup
 
 # READMEファイルが存在する場合のみ読み込む
+readme = ""
 if os.path.exists("README.md"):
-    with open("README.md", encoding="utf-8") as f:
-        long_description = f.read()
-else:
-    long_description = "PowerShell 7のセッション管理とコマンド実行を行うPythonライブラリ"
+    with open("README.md", "r", encoding="utf-8") as f:
+        readme = f.read()
 
 setup(
     name="powershell_controller",
     version="0.1.0",
-    packages=find_packages(where="src"),
-    package_dir={"": "src"},
-    install_requires=[
-        "loguru>=0.7.2",
-        "psutil>=5.9.8",
-        "tenacity>=8.2.3",
-        "pydantic>=2.6.3"
-    ],
-    extras_require={
-        "dev": [
-            "pytest>=8.0.2",
-            "pytest-mock>=3.12.0",
-            "pytest-cov>=4.0.0"
-        ]
-    },
-    python_requires=">=3.8",
-    description="PowerShell 7コントローラー",
-    long_description=long_description,
+    description="PowerShell 7 controller for MCP",
+    long_description=readme,
     long_description_content_type="text/markdown",
     author="Your Name",
     author_email="your.email@example.com",
     url="https://github.com/yourusername/powershell_controller",
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
+    install_requires=[
+        "loguru>=0.7.0",
+        "pydantic>=2.0.0",
+        "tenacity>=8.0.0",
+        "psutil>=5.9.0",
+        "result>=0.13.1",
+        "rich>=13.0.0",
+    ],
+    python_requires=">=3.8",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
