@@ -149,3 +149,50 @@ controller = SimplePowerShellController(config=config)
 ## ライセンス
 
 MIT License 
+
+## 設定方法
+
+### 環境変数による設定
+
+```bash
+# PowerShell Controller設定
+export PS_CTRL_LOG_LEVEL=INFO
+export PS_CTRL_LOG_FILE=powershell.log
+export PS_CTRL_PS_PATH="C:\Program Files\PowerShell\7\pwsh.exe"
+```
+
+### .envファイルによる設定
+
+```ini
+# .env
+PS_CTRL_LOG_LEVEL=INFO
+PS_CTRL_LOG_FILE=powershell.log
+PS_CTRL_PS_PATH=C:\Program Files\PowerShell\7\pwsh.exe
+```
+
+### コードによる設定
+
+```python
+from powershell_controller.simple import PowerShellControllerSettings, RetryConfig
+
+settings = PowerShellControllerSettings(
+    log_level="DEBUG",
+    log_file="powershell.log",
+    ps_path=r"C:\Program Files\PowerShell\7\pwsh.exe",
+    retry_config=RetryConfig(
+        max_attempts=3,
+        base_delay=1.0,
+        max_delay=5.0,
+        jitter=0.1
+    )
+)
+
+controller = SimplePowerShellController(config=settings)
+```
+
+### 設定の優先順位
+
+1. コードで直接指定された値
+2. 環境変数
+3. .envファイル
+4. デフォルト値 

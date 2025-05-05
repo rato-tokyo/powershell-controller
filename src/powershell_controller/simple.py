@@ -24,6 +24,7 @@ from typing import (
 import tenacity
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from result import Err, Ok, Result
 from rich.console import Console
 from rich.logging import RichHandler
@@ -130,31 +131,73 @@ class RetryConfig(BaseModel):
             raise ValueError('max_delayはbase_delay以上である必要があります')
         return v
 
-class PowerShellControllerConfig(BaseModel):
-    """PowerShellControllerの設定を定義するPydanticモデル"""
-    log_level: str = Field(default="INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
-    log_file: Optional[str] = None
-    ps_path: str = Field(default=r"C:\Program Files\PowerShell\7\pwsh.exe")
-    retry_config: RetryConfig = Field(default_factory=RetryConfig)
+class PowerShellControllerSettings(BaseSettings):
+    """PowerShellControllerの設定を定義するSettingsモデル"""
+    model_config = SettingsConfigDict(
+        env_prefix="PS_CTRL_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+        json_schema_extra={
+            "examples": [
+                {
+                    "log_level": "DEBUG",
+                    "log_file": "powershell.log",
+                    "ps_path": r"C:\Program Files\PowerShell\7\pwsh.exe",
+                    "retry_config": {
+                        "max_attempts": 3,
+                        "base_delay": 1.0,
+                        "max_delay": 5.0,
+                        "jitter": 0.1
+                    }
+                }
+            ]
+        }
+    )
+
+    log_level: str = Field(
+        default="INFO",
+        pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$",
+        description="ログレベル",
+        json_schema_extra={"env": "LOG_LEVEL"}
+    )
+    log_file: Optional[str] = Field(
+        default=None,
+        description="ログファイルのパス",
+        json_schema_extra={"env": "LOG_FILE"}
+    )
+    ps_path: str = Field(
+        default=r"C:\Program Files\PowerShell\7\pwsh.exe",
+        description="PowerShell実行ファイルのパス",
+        json_schema_extra={"env": "PS_PATH"}
+    )
+    retry_config: RetryConfig = Field(
+        default_factory=RetryConfig,
+        description="リトライ設定"
+    )
 
     @field_validator('ps_path')
     @classmethod
-    def ps_path_must_exist(cls: Type[PowerShellControllerConfig], v: str) -> str:
+    def ps_path_must_exist(cls: Type[PowerShellControllerSettings], v: str) -> str:
         if not os.path.exists(v):
             raise ValueError(f'PowerShell実行ファイルが見つかりません: {v}')
         return v
 
+# 後方互換性のために残す
+PowerShellControllerConfig = PowerShellControllerSettings
+
 class SimplePowerShellController:
     """PowerShell 7のセッション管理とコマンド実行を行うコントローラー"""
 
-    def __init__(self, config: Optional[PowerShellControllerConfig] = None) -> None:
+    def __init__(self, config: Optional[PowerShellControllerSettings] = None) -> None:
         """
         PowerShell 7コントローラーを初期化
         
         Args:
             config: コントローラーの設定（オプション）
         """
-        self.config = config or PowerShellControllerConfig()
+        self.config = config or PowerShellControllerSettings()
         setup_logging(self.config.log_level, self.config.log_file)
         self.process: Optional[subprocess.Popen[str]] = None
         self.pid: Optional[int] = None

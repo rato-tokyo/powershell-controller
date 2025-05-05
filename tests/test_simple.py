@@ -1,6 +1,7 @@
 """
 PowerShell Controllerのテストスイート
 """
+import os
 import subprocess
 from typing import Any, Callable, Optional
 
@@ -8,7 +9,7 @@ import pytest
 from deepdiff import DeepDiff
 
 from powershell_controller.simple import (
-    PowerShellControllerConfig,
+    PowerShellControllerSettings,
     PowerShellExecutionError,
     PowerShellTimeoutError,
     RetryConfig,
@@ -66,9 +67,9 @@ def mock_popen(mocker: Any, mock_process_factory: Callable[..., Any]) -> Any:
     return popen_mock
 
 @pytest.fixture
-def controller_config() -> PowerShellControllerConfig:
+def controller_config() -> PowerShellControllerSettings:
     """テスト用のコントローラー設定を提供するフィクスチャ"""
-    return PowerShellControllerConfig(
+    return PowerShellControllerSettings(
         log_level="DEBUG",
         retry_config=RetryConfig(
             max_attempts=3,
@@ -79,7 +80,7 @@ def controller_config() -> PowerShellControllerConfig:
     )
 
 @pytest.fixture
-def controller(controller_config: PowerShellControllerConfig) -> SimplePowerShellController:
+def controller(controller_config: PowerShellControllerSettings) -> SimplePowerShellController:
     """テスト用のPowerShellControllerインスタンスを提供するフィクスチャ"""
     return SimplePowerShellController(config=controller_config)
 
@@ -147,6 +148,16 @@ def test_controller_initialization() -> None:
     controller = SimplePowerShellController()
     assert controller is not None
     assert controller.config is not None
+
+def test_controller_with_env_vars(monkeypatch: Any) -> None:
+    """環境変数からの設定読み込みテスト"""
+    # 環境変数を設定
+    monkeypatch.setenv("PS_CTRL_LOG_LEVEL", "DEBUG")
+    monkeypatch.setenv("PS_CTRL_LOG_FILE", "test.log")
+    
+    controller = SimplePowerShellController()
+    assert controller.config.log_level == "DEBUG"
+    assert controller.config.log_file == "test.log"
 
 def test_execute_command_success() -> None:
     """基本的なコマンド実行テスト"""

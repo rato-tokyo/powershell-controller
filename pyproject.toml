@@ -41,4 +41,16 @@ warn_unreachable = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-v --cov=powershell_controller" 
+addopts = "-v --cov=powershell_controller --randomly-seed=last --hypothesis-profile=default"
+
+[tool.hypothesis]
+deadline = 500
+max_examples = 100
+derandomize = true
+database = ".hypothesis/examples"
+profiles = {default = {max_examples = 100}, ci = {max_examples = 1000}}
+
+[tool.beartype]
+is_beartype = true
+violation_type = "Exception"
+conf_args = {is_debug = true} 

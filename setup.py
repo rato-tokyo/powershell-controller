@@ -23,6 +23,7 @@ setup(
     install_requires=[
         "loguru>=0.7.0",
         "pydantic>=2.0.0",
+        "pydantic-settings>=2.0.0",
         "tenacity>=8.0.0",
         "psutil>=5.9.0",
         "result>=0.13.1",
