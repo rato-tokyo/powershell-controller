@@ -7,15 +7,16 @@ import pytest
 import pytest_asyncio
 import platform
 import asyncio
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 from unittest.mock import MagicMock, AsyncMock
 from contextlib import asynccontextmanager
 
 from loguru import logger
 
-from py_pshell import PowerShellControllerSettings
-from py_pshell.core.session import PowerShellSession
-from py_pshell.simple import SimplePowerShellController, CommandResult
+from py_pshell.config import PowerShellControllerSettings
+from py_pshell.session import PowerShellSession
+from py_pshell.controller import PowerShellController, CommandResult
+from py_pshell.errors import PowerShellExecutionError, ProcessError, PowerShellTimeoutError, CommunicationError
 
 # デフォルトではモックを使用する
 # 環境変数POWERSHELL_TEST_MOCKが設定されている場合は、その値を使用
@@ -50,16 +51,14 @@ def event_loop_policy():
 @pytest.fixture
 def session_config() -> PowerShellControllerSettings:
     """テスト用のカスタム設定を持つPowerShellControllerSettingsを返します。"""
-    from py_pshell.utils.config import PowerShellConfig, TimeoutConfig
+    from py_pshell.config import PowerShellConfig, TimeoutConfig
     
     # タイムアウト設定を短く
     timeout_config = TimeoutConfig(
         default=5.0,
         startup=5.0,
         execution=5.0,
-        read=5.0,
-        shutdown=5.0,
-        cleanup=5.0
+        shutdown=5.0
     )
     
     # PowerShell固有の設定
@@ -70,11 +69,10 @@ def session_config() -> PowerShellControllerSettings:
     
     # 全体設定
     settings = PowerShellControllerSettings(
-        timeouts=timeout_config,
+        timeout=timeout_config,
         powershell=ps_config,
-        retry_attempts=2,
-        retry_delay=0.5,
-        debug_logging=True
+        log_level="DEBUG",
+        use_mock=USE_MOCK
     )
     
     return settings
@@ -117,7 +115,7 @@ async def async_mock_execute(command: str) -> str:
         return "Output"
     elif "Get-NonExistentCommand" in command or "Get-NonExistentCmdlet" in command:
         # 存在しないコマンドの場合、例外を発生
-        from py_pshell.core.errors import PowerShellExecutionError
+        from py_pshell.errors import PowerShellExecutionError
         raise PowerShellExecutionError("CommandNotFound: The term 'Get-NonExistentCommand' is not recognized.")
     elif "Test-Error" in command:
         # テスト用のエラー
@@ -178,12 +176,10 @@ def use_mock_sessions(monkeypatch):
             return "Output"
         elif "Get-NonExistentCommand" in command or "Get-NonExistentCmdlet" in command:
             # 存在しないコマンドの場合、例外を発生
-            from py_pshell.core.errors import PowerShellExecutionError
-            raise PowerShellExecutionError("CommandNotFound: The term 'Get-NonExistentCommand' is not recognized.", details=command)
+            raise PowerShellExecutionError("CommandNotFound: The term 'Get-NonExistentCommand' is not recognized.", command)
         elif "Start-Sleep" in command:
             # スリープコマンドの場合、タイムアウト例外を発生
             if "-Seconds 5" in command:
-                from py_pshell.core.errors import PowerShellTimeoutError
                 raise PowerShellTimeoutError("Operation timed out")
             # 短いスリープは普通に成功
             return "Sleep completed"
@@ -194,157 +190,131 @@ def use_mock_sessions(monkeypatch):
             elif "[1, 2, 3]" in command:
                 return '[1,2,3]'
             return '{}'
-        elif "$env:" in command:
-            # 環境変数関連のコマンド
-            if "=" in command:  # 設定
-                return ""
-            else:  # 取得
-                return "test_value"
-        elif "@(1, 2, 3)" in command:
-            # 配列を返すコマンド
-            return "[1,2,3]"
-        elif "$var =" in command or "$var +=" in command:
-            # 変数操作
-            return ""
-        elif ";" in command:
-            # 複数のコマンドを含む場合
-            return "複数コマンド実行完了"
         elif "Test-ConnectionFailed" in command:
-            # 通信エラーのシミュレーション
-            from py_pshell.core.errors import CommunicationError
+            # 通信エラーのテスト
             raise CommunicationError("通信エラーが発生しました")
         elif "Test-ProcessFailed" in command:
-            # プロセスエラーのシミュレーション
-            from py_pshell.core.errors import ProcessError
-            raise ProcessError("プロセスが予期せず終了しました")
-        elif "Get-Date" in command:
-            # 日付コマンド
-            return "2025-05-07 12:00:00"
+            # プロセスエラーのテスト
+            raise ProcessError("プロセスエラーが発生しました")
         else:
             # その他のコマンドはただ成功
             return "Command executed successfully"
-    
-    # run_commandメソッドをパッチ
-    async def mock_run_command(self, command: str) -> CommandResult:
-        """SimplePowerShellControllerのrun_commandメソッドをモック化"""
-        if "Write-Output" in command:
-            # 出力コマンドの場合、引用符内のテキストを抽出
-            match = re.search(r"Write-Output\s+'([^']*)'", command)
-            if match:
-                return CommandResult(output=match.group(1), success=True, error=None)
-            match = re.search(r"Write-Output\s+\"([^\"]*)\"", command)
-            if match:
-                return CommandResult(output=match.group(1), success=True, error=None)
-            return CommandResult(output="Output", success=True, error=None)
-        elif "Get-NonExistentCommand" in command or "Get-NonExistentCmdlet" in command:
-            # 存在しないコマンドの場合はエラー
-            return CommandResult(
-                output="", 
-                error="CommandNotFound: The term 'Get-NonExistentCommand' is not recognized.", 
-                success=False, 
-                details={"error_type": "execution_error", "command": command}
-            )
-        elif "Start-Sleep" in command:
-            # スリープコマンドの場合
-            if "-Seconds 5" in command:
-                return CommandResult(
-                    output="", 
-                    error="Operation timed out", 
-                    success=False, 
-                    details={"error_type": "timeout_error", "command": command}
-                )
-            # 短いスリープは普通に成功
-            return CommandResult(output="Sleep completed", success=True, error=None)
-        elif "Test-ConnectionFailed" in command:
-            # 通信エラーのシミュレーション
-            return CommandResult(
-                output="", 
-                error="通信エラーが発生しました", 
-                success=False, 
-                details={"error_type": "communication_error", "command": command}
-            )
-        elif "Test-ProcessFailed" in command:
-            # プロセスエラーのシミュレーション
-            return CommandResult(
-                output="", 
-                error="プロセスが予期せず終了しました", 
-                success=False, 
-                details={"error_type": "process_error", "command": command}
-            )
-        elif "Get-Date" in command:
-            # 日付コマンド
-            return CommandResult(output="2025-05-07 12:00:00", success=True, error=None)
-        else:
-            # その他のコマンドはただ成功
-            return CommandResult(output="Command executed successfully", success=True, error=None)
 
-    # 警告を回避するため、async_mock_closeが常に完了した将来を返すようにする
-    mock_close_future = asyncio.Future()
-    mock_close_future.set_result(None)
-    async_mock_close = AsyncMock()
-    async_mock_close.return_value = None  # 明示的にNoneを返すように設定
-    
+    # PowerShellSessionのモック
     monkeypatch.setattr(PowerShellSession, "__aenter__", mock_aenter)
     monkeypatch.setattr(PowerShellSession, "execute", mock_execute)
-    monkeypatch.setattr(PowerShellSession, "cleanup", AsyncMock())
     
-    # SimplePowerShellControllerもモック化
-    monkeypatch.setattr(SimplePowerShellController, "run_command", mock_run_command)
-    monkeypatch.setattr(SimplePowerShellController, "close", async_mock_close)
+    # PowerShellControllerのモック
+    async def mock_run_command(self, command: str, timeout: Optional[float] = None) -> CommandResult:
+        try:
+            if not self.session:
+                self.session = PowerShellSession(settings=self.settings)
+                await self.session.__aenter__()
+            
+            output = await self.session.execute(command)
+            return CommandResult(
+                output=output,
+                error="",
+                success=True,
+                command=command,
+                execution_time=0.1
+            )
+        except PowerShellExecutionError as e:
+            details = {"error_type": "execution_error"}
+            if "not recognized" in str(e) or "CommandNotFound" in str(e):
+                details["error_type"] = "command_not_found"
+            return CommandResult(
+                output="",
+                error=str(e),
+                success=False,
+                command=command,
+                execution_time=0.1
+            )
+        except PowerShellTimeoutError as e:
+            return CommandResult(
+                output="",
+                error=str(e),
+                success=False,
+                command=command,
+                execution_time=0.1
+            )
+        except CommunicationError as e:
+            return CommandResult(
+                output="",
+                error=str(e),
+                success=False,
+                command=command,
+                execution_time=0.1
+            )
+        except ProcessError as e:
+            return CommandResult(
+                output="",
+                error=str(e),
+                success=False,
+                command=command,
+                execution_time=0.1
+            )
+        except Exception as e:
+            return CommandResult(
+                output="",
+                error=str(e),
+                success=False,
+                command=command,
+                execution_time=0.1
+            )
     
-    # execute_command_resultをモック化
-    def mock_execute_command_result(self, command: str):
+    def mock_execute_command_result(self, command: str, timeout: Optional[float] = None):
         from result import Ok, Err
-        from py_pshell.core.errors import PowerShellExecutionError
         
-        if "Get-NonExistentCommand" in command:
-            return Err(PowerShellExecutionError("CommandNotFound: The term 'Get-NonExistentCommand' is not recognized."))
-        elif "Write-Output" in command:
-            match = re.search(r"Write-Output\s+'([^']*)'", command)
-            if match:
-                return Ok(match.group(1))
-            match = re.search(r"Write-Output\s+\"([^\"]*)\"", command)
-            if match:
-                return Ok(match.group(1))
-            return Ok("Output")
-        else:
+        try:
+            if "Get-NonExistentCommand" in command:
+                return Err(PowerShellExecutionError("CommandNotFound: The term 'Get-NonExistentCommand' is not recognized."))
+            elif "Test-ConnectionFailed" in command:
+                return Err(CommunicationError("通信エラーが発生しました"))
+            elif "Test-ProcessFailed" in command:
+                return Err(ProcessError("プロセスエラーが発生しました"))
+            elif "Start-Sleep -Seconds 5" in command:
+                return Err(PowerShellTimeoutError("Operation timed out"))
+            
+            # 正常なコマンドの結果
+            if "Write-Output" in command:
+                match = re.search(r"Write-Output\s+'([^']*)'", command)
+                if match:
+                    return Ok(match.group(1))
+                return Ok("Output")
+            
             return Ok("Command executed successfully")
+        except Exception as e:
+            return Err(PowerShellError(str(e)))
     
-    # execute_commands_in_session_resultをモック化
-    def mock_execute_commands_in_session_result(self, commands: list):
-        from result import Ok, Err
-        from py_pshell.core.errors import PowerShellExecutionError
-        
-        if any("Get-NonExistentCommand" in cmd for cmd in commands):
-            return Err(PowerShellExecutionError("CommandNotFound: The term 'Get-NonExistentCommand' is not recognized."))
-        
-        results = []
-        for cmd in commands:
-            if "Write-Output" in cmd:
-                match = re.search(r"Write-Output\s+'([^']*)'", cmd)
+    # モックメソッドをPowerShellControllerに追加
+    monkeypatch.setattr(PowerShellController, "run_command", mock_run_command)
+    monkeypatch.setattr(PowerShellController, "execute_command_result", mock_execute_command_result)
+    
+    # execute_commandメソッドもモック化
+    def mock_execute_command(self, command: str, timeout: Optional[float] = None) -> str:
+        """
+        モック化されたexecute_commandメソッド
+        """
+        try:
+            if "Get-NonExistentCommand" in command:
+                raise PowerShellExecutionError("CommandNotFound: The term 'Get-NonExistentCommand' is not recognized.")
+            elif "Test-ConnectionFailed" in command:
+                raise CommunicationError("通信エラーが発生しました")
+            elif "Test-ProcessFailed" in command:
+                raise ProcessError("プロセスエラーが発生しました")
+            elif "Start-Sleep -Seconds 5" in command:
+                raise PowerShellTimeoutError("Operation timed out")
+                
+            # 正常なコマンドの結果
+            if "Write-Output" in command:
+                match = re.search(r"Write-Output\s+'([^']*)'", command)
                 if match:
-                    results.append(match.group(1))
-                    continue
-                match = re.search(r"Write-Output\s+\"([^\"]*)\"", cmd)
-                if match:
-                    results.append(match.group(1))
-                    continue
-                results.append("Output")
-            else:
-                results.append("Command executed successfully")
-        return Ok(results)
+                    return match.group(1)
+                return "Output"
+                
+            return "Command executed successfully"
+        except Exception as e:
+            raise PowerShellExecutionError(str(e), command)
     
-    # run_commandsもモック化
-    async def mock_run_commands(self, commands: list):
-        results = []
-        for cmd in commands:
-            result = await mock_run_command(self, cmd)
-            results.append(result)
-            if not result.success:
-                break
-        return results
-    
-    monkeypatch.setattr(SimplePowerShellController, "execute_command_result", mock_execute_command_result)
-    monkeypatch.setattr(SimplePowerShellController, "execute_commands_in_session_result", mock_execute_commands_in_session_result)
-    monkeypatch.setattr(SimplePowerShellController, "execute_script_result", mock_execute_command_result)
-    monkeypatch.setattr(SimplePowerShellController, "run_commands", mock_run_commands) 
+    monkeypatch.setattr(PowerShellController, "execute_command", mock_execute_command) 

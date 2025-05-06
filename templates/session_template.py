@@ -6,10 +6,10 @@ PowerShellセッション管理のテンプレート
 """
 from typing import Optional, Any, Dict
 import asyncio
-from ..infra.utils.process_manager import AsyncProcessManager
-from ..infra.utils.test_helper import AsyncTestHelper
-from ..infra.utils.ipc import IPCProtocol, MessageType
-from ..infra.utils.errors import ProcessError, CommunicationError
+
+# 相対インポートから絶対インポートに変更
+from py_pshell.utils import get_powershell_executable
+from py_pshell.errors import ProcessError, CommunicationError
 
 class BaseSessionTemplate:
     """PowerShellセッション管理の基本テンプレート"""
@@ -20,8 +20,8 @@ class BaseSessionTemplate:
             timeout: タイムアウト時間（秒）
         """
         self.timeout = timeout
-        self._process_manager = AsyncProcessManager()
-        self._ipc = IPCProtocol()
+        self.process = None
+        self.powershell_executable = get_powershell_executable()
         
     async def initialize(self) -> None:
         """セッションを初期化"""

@@ -2,19 +2,24 @@
 
 ## 概要
 
-このドキュメントでは、PowerShellコントローラーのテンプレートの使用方法と、再利用可能なインフラ層の活用方法について説明します。
+このドキュメントでは、PowerShellコントローラーのテンプレートの使用方法について説明します。このテンプレートを使用することで、独自のPowerShellセッション管理クラスを簡単に作成できます。
 
-## ディレクトリ構造
+## パッケージ構造
 
 ```
-infra/
-  utils/
-    process_manager.py  - 非同期プロセス管理
-    test_helper.py      - テスト用ヘルパー
-    ipc.py             - プロセス間通信
-    errors.py          - エラー定義
+py_pshell/
+├── __init__.py            # パッケージエクスポート定義
+├── controller.py          # PowerShellController実装
+├── session.py             # PowerShellSession実装
+├── config.py              # 設定クラス
+├── errors.py              # 例外定義
+├── interfaces.py          # インターフェース定義
+└── utils/                 # ユーティリティ関数
+    ├── __init__.py
+    └── ... その他ユーティリティ
+
 templates/
-  session_template.py    - セッション管理テンプレート
+└── session_template.py    # セッション管理テンプレート
 ```
 
 ## テンプレートの使用方法
@@ -22,40 +27,43 @@ templates/
 1. セッション管理クラスの作成
    ```python
    from templates.session_template import BaseSessionTemplate
+   from py_pshell.errors import ProcessError, CommunicationError
    
    class MyPowerShellSession(BaseSessionTemplate):
        async def initialize(self) -> None:
            # セッションの初期化処理を実装
-           pass
+           self.process = await asyncio.create_subprocess_exec(
+               self.powershell_executable,
+               stdin=asyncio.subprocess.PIPE,
+               stdout=asyncio.subprocess.PIPE,
+               stderr=asyncio.subprocess.PIPE
+           )
            
        async def cleanup(self) -> None:
            # クリーンアップ処理を実装
-           pass
+           if self.process and self.process.returncode is None:
+               self.process.terminate()
+               await self.process.wait()
            
-       async def execute(self, command: str) -> Any:
+       async def execute(self, command: str) -> str:
            # コマンド実行処理を実装
-           pass
-   ```
-
-2. インフラ層の活用
-   ```python
-   from infra.utils.process_manager import AsyncProcessManager
-   from infra.utils.test_helper import AsyncTestHelper
-   from infra.utils.ipc import IPCProtocol
-   
-   # プロセス管理の使用例
-   process_manager = AsyncProcessManager()
-   result = await process_manager.run_in_executor(some_function)
-   
-   # テストヘルパーの使用例
-   await AsyncTestHelper.wait_for_condition(
-       lambda: check_condition(),
-       timeout=5.0
-   )
-   
-   # IPCプロトコルの使用例
-   protocol = IPCProtocol()
-   message = protocol.create_command_message("some command")
+           if not self.process:
+               raise ProcessError("プロセスが初期化されていません")
+               
+           try:
+               self.process.stdin.write(f"{command}\n".encode('utf-8'))
+               await self.process.stdin.drain()
+               
+               # タイムアウト付きで出力を読み取り
+               output = await asyncio.wait_for(
+                   self.process.stdout.read(1024),
+                   timeout=self.timeout
+               )
+               return output.decode('utf-8')
+           except asyncio.TimeoutError:
+               raise TimeoutError(f"コマンド実行がタイムアウトしました: {command}")
+           except Exception as e:
+               raise CommunicationError(f"コマンド実行中にエラーが発生: {e}")
    ```
 
 ## エラー処理
@@ -63,18 +71,25 @@ templates/
 エラー処理は標準化されており、以下のエラークラスが提供されています：
 
 - `PowerShellError`: 基底エラークラス
+- `PowerShellExecutionError`: コマンド実行エラー
+- `PowerShellTimeoutError`: タイムアウトエラー
+- `PowerShellStartupError`: 起動エラー
+- `PowerShellShutdownError`: 終了エラー
 - `ProcessError`: プロセス関連のエラー
-- `TimeoutError`: タイムアウトエラー
 - `CommunicationError`: 通信エラー
 
 エラー処理の例：
 ```python
+from py_pshell.errors import PowerShellExecutionError, PowerShellTimeoutError
+
 try:
     result = await session.execute("some command")
+except PowerShellExecutionError as e:
+    logger.error(f"実行エラー: {e}")
+except PowerShellTimeoutError as e:
+    logger.error(f"タイムアウト: {e}")
 except ProcessError as e:
     logger.error(f"プロセスエラー: {e}")
-except TimeoutError as e:
-    logger.error(f"タイムアウト: {e}")
 except CommunicationError as e:
     logger.error(f"通信エラー: {e}")
 ```
@@ -91,13 +106,13 @@ except CommunicationError as e:
    - リトライ可能なエラーの処理
 
 3. 非同期処理
-   - `AsyncProcessManager`の活用
+   - asyncio関数の適切な使用
    - 適切なタイムアウト設定
    - エラー回復メカニズムの実装
 
 4. テスト
-   - `AsyncTestHelper`の活用
-   - モックの適切な使用
+   - インターフェースを実装したモックの活用
+   - テスト用のヘルパーメソッドの使用
    - エッジケースのテスト
 
 ## 注意事項

@@ -1,66 +1,54 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "py-pshell"
+name = "py_pshell"
 version = "0.1.0"
-description = "PowerShell 7 controller for MCP"
+description = "PowerShell 7コントローラー - シンプルなPowerShell操作ライブラリ"
 readme = "README.md"
-requires-python = ">=3.12"
-license = {text = "MIT"}
+requires-python = ">=3.8"
+license = {text = "MIT License"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "Your Name", email = "your.email@example.com"},
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
-    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: System :: Systems Administration",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-
 dependencies = [
-    "loguru>=0.7.0",
+    "loguru>=0.6.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
-    "tenacity>=8.0.0",
-    "psutil>=5.9.0",
-    "asyncio>=3.4.3",
-    "types-psutil>=5.9.0",
-    "result>=0.13.1",
-    "rich>=13.0.0",
-    "beartype>=0.16.0",
-    "typing-extensions>=4.2.0",
-    "aiohttp>=3.8.0",
-    "aiodns>=3.0.0",
-    "cchardet>=2.1.7",
+    "python-dotenv>=1.0.0",
+    "result>=0.9.0",
+    "beartype>=0.14.0",
+    "tenacity>=8.2.0",
 ]
-
-[project.urls]
-Homepage = "https://github.com/yourusername/py-pshell"
-Issues = "https://github.com/yourusername/py-pshell/issues"
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
-    "pytest-asyncio>=0.18.0",
+    "pytest-asyncio>=0.20.0",
     "pytest-timeout>=2.1.0",
-    "pytest-cov>=3.0.0",
-    "pytest-mock>=3.12.0",
-    "pytest-randomly>=3.15.0",
-    "pytest-xdist>=3.5.0",
-    "hypothesis>=6.98.0",
-    "deepdiff>=6.7.0",
-    "black>=22.3.0",
-    "isort>=5.10.1",
-    "ruff>=0.0.270",
-    "mypy>=0.950",
-    "flake8>=4.0.1",
-    "pylint>=2.13.0",
+    "pytest-mock>=3.10.0",
+    "ruff>=0.0.243",
+    "mypy>=1.0.0",
+    "black>=23.0.0",
+    "coverage>=7.0.0",
 ]
+
+[project.urls]
+"Homepage" = "https://github.com/yourusername/py_pshell"
+"Bug Tracker" = "https://github.com/yourusername/py_pshell/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -70,57 +58,27 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = [
-    "--strict-markers",
-    "--tb=short",
-    "--asyncio-mode=auto",
-    "--timeout=300",
-    "-v",
-    "--cov=src",
-    "--cov-report=html",
-    "--cov-report=term-missing:skip-covered",
-    "--randomly-seed=last",
-]
-markers = [
-    "asyncio: mark a test as an async test",
-    "timeout: mark a test as having a timeout",
-    "skipif_platform: skip test on specific platform",
-    "skipif_ci: skip test in CI environment",
-    "skipif_not_windows: skip test if not running on Windows",
-]
-log_cli = true
-log_cli_level = "INFO"
-log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
-log_cli_date_format = "%Y-%m-%d %H:%M:%S"
-junit_family = "xunit2"
-junit_duration_report = "call"
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
+timeout = 30
 
-[tool.pytest.env]
-POWERSHELL_TEST_MOCK = "true"
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
-select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "C",  # flake8-comprehensions
-    "B",  # flake8-bugbear
-]
-ignore = []
+target-version = "py38"
+select = ["E", "F", "W", "I", "B", "A"]
+ignore = ["E501", "B008"]
 
-[tool.ruff.isort]
-known-first-party = ["py_pshell"]
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -128,19 +86,13 @@ disallow_incomplete_defs = true
 check_untyped_defs = true
 disallow_untyped_decorators = true
 no_implicit_optional = true
+strict_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 
-[tool.hypothesis]
-deadline = 500
-max_examples = 100
-derandomize = true
-database = ".hypothesis/examples"
-profiles = {default = {max_examples = 100}, ci = {max_examples = 1000}}
-
-[tool.beartype]
-is_beartype = true
-violation_type = "Exception"
-conf_args = {is_debug = true} 
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false 

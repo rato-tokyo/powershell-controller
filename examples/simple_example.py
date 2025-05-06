@@ -1,26 +1,59 @@
-#!/usr/bin/env python3
-"""
-PowerShell Controllerの簡単な使用例：
-基本的なディレクトリ操作（非同期版）
-"""
-import asyncio
-from powershell_controller.session import PowerShellSession
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
-async def main():
-    # withブロックでセッションを管理
-    async with PowerShellSession() as session:
-        # 現在のディレクトリの内容を取得
-        result = await session.execute("Get-ChildItem")
-        print("現在のディレクトリ:")
-        print(result)
+"""
+PowerShellコントローラーの基本的な使用例
+"""
+
+from py_pshell.controller import PowerShellController
+from py_pshell.config import PowerShellControllerSettings
+from py_pshell.errors import PowerShellExecutionError
+
+def basic_example():
+    """基本的な使用例"""
+    print("===== 基本的な使用例 =====")
+    
+    # モックモードを使用（実際のPowerShellを使用する場合はFalseに設定）
+    settings = PowerShellControllerSettings(use_mock=True)
+    
+    # コントローラーの初期化
+    controller = PowerShellController(settings=settings)
+    
+    try:
+        # 基本的なコマンド実行
+        print("\n[1] 基本的なコマンド実行:")
+        output = controller.execute_command("Write-Output 'Hello from PowerShell'")
+        print(f"  出力: {output}")
         
-        # 親ディレクトリに移動
-        await session.execute("Set-Location ..")
+        # PowerShellスクリプトの実行
+        print("\n[2] スクリプトの実行:")
+        script = """
+        $numbers = 1..5
+        $sum = ($numbers | Measure-Object -Sum).Sum
+        Write-Output "合計: $sum"
+        """
+        output = controller.execute_command(script)
+        print(f"  出力: {output}")
         
-        # 移動後のディレクトリ内容を取得
-        result = await session.execute("Get-ChildItem")
-        print("\n親ディレクトリ:")
-        print(result)
+        # エラーハンドリング例
+        print("\n[3] エラーハンドリング:")
+        try:
+            output = controller.execute_command("Get-NonExistentCommand")
+        except PowerShellExecutionError as e:
+            print(f"  エラーが発生しました: {e}")
+        
+        # Result型を使用したエラーハンドリング
+        print("\n[4] Result型の使用:")
+        result = controller.execute_command_result("Get-Process | Select-Object -First 3")
+        if result.is_ok():
+            print(f"  成功: {result.unwrap()}")
+        else:
+            print(f"  エラー: {result.unwrap_err()}")
+        
+    finally:
+        # リソースのクリーンアップ
+        controller.close_sync()
+        print("\n===== 完了 =====")
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    basic_example() 
