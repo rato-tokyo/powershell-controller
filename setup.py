@@ -28,6 +28,7 @@ setup(
         "psutil>=5.9.0",
         "result>=0.13.1",
         "rich>=13.0.0",
+        "beartype>=0.14.0",
     ],
     python_requires=">=3.8",
     classifiers=[

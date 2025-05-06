@@ -504,20 +504,31 @@ Write-Output "SESSION_END"
 
     async def _wait_for_ready(self) -> None:
         """PowerShellセッションの初期化完了を待機します。"""
-        # 最大5秒間だけ待機
-        max_wait_time = 5.0
+        # 最大10秒間待機（タイムアウト値を長くする）
+        max_wait_time = 10.0
         start_time = time.time()
         
         while time.time() - start_time < max_wait_time:
             try:
-                output_lines, error_lines = await self._read_queues(timeout=0.5)
-                if "SESSION_READY" in output_lines:
+                # SESSION_READYが出力されるまで待機
+                output_lines, error_lines = await self._read_queues(timeout=1.0)  # タイムアウトを長く
+                
+                # SESSION_READYが検出されたら成功
+                if any("SESSION_READY" in line for line in output_lines):
                     return
+                    
+                # エラーが検出された場合は例外をスロー
                 if error_lines:
+                    self.logger.error(f"PowerShell initialization error: {error_lines}")
                     raise PowerShellError("\n".join(error_lines))
-                # 短い間隔で再試行
-                await asyncio.sleep(0.1)
-            except asyncio.TimeoutError:
+                    
+                # 少し待機してから再試行
+                await asyncio.sleep(0.2)
+                
+            except PowerShellTimeoutError:
+                # タイムアウトした場合は継続して待機
+                self.logger.debug("Waiting for PowerShell session initialization...")
+                await asyncio.sleep(0.5)
                 continue
                 
         # タイムアウト後も SESSION_READY が見つからない場合
