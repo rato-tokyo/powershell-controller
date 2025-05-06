@@ -1,30 +1,13 @@
 """
-PowerShellコントローラーパッケージ
+PowerShellコントローラーコアパッケージ
 
-PowerShellプロセスとの対話を簡単に行うためのライブラリ
+PowerShellプロセスとの対話を行うための基本機能を提供します。
 """
 import logging
 import sys
 from loguru import logger
 from beartype import BeartypeConf
 from beartype.claw import beartype_this_package
-
-# APIの公開
-from .utils.config import PowerShellControllerSettings
-from .utils.result_helper import ResultHandler
-from .core.errors import (
-    PowerShellError,
-    PowerShellExecutionError,
-    PowerShellTimeoutError,
-    ProcessError,
-    CommunicationError,
-    ConfigurationError,
-    SessionError,
-    as_result,
-    as_async_result
-)
-from .simple import SimplePowerShellController, CommandResult
-from .error_handler import ErrorHandler
 
 # バージョン情報
 __version__ = "0.1.0"
@@ -56,26 +39,13 @@ logger.configure(
     ]
 )
 
+# APIのエクスポート
+from .controller import SimplePowerShellController, CommandResult
+
 # エクスポート
 __all__ = [
-    # 設定
-    "PowerShellControllerSettings",
-    # エラー
-    "PowerShellError",
-    "PowerShellExecutionError",
-    "PowerShellTimeoutError",
-    "ProcessError",
-    "CommunicationError",
-    "ConfigurationError",
-    "SessionError",
-    # ヘルパー
-    "ResultHandler",
-    "ErrorHandler",
-    "as_result",
-    "as_async_result",
-    # コントローラー
+    # コアAPI
     "SimplePowerShellController",
     "CommandResult",
-    # ユーティリティ
     "logger"
 ] 

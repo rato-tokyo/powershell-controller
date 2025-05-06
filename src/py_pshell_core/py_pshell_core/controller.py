@@ -15,9 +15,9 @@ from pydantic import BaseModel
 from loguru import logger
 from result import Result, Ok, Err
 
-from py_pshell.core.session import PowerShellSession
-from py_pshell.utils.config import PowerShellControllerSettings
-from py_pshell.core.errors import (
+# py_pshell_utilsパッケージからのインポート
+from py_pshell_utils.config import PowerShellControllerSettings
+from py_pshell_utils.errors import (
     PowerShellError, 
     PowerShellExecutionError,
     PowerShellTimeoutError,
@@ -25,9 +25,38 @@ from py_pshell.core.errors import (
     ProcessError,
     as_result
 )
-from py_pshell.session_manager import SessionManager
-from py_pshell.command_executor import CommandExecutor
 
+# 将来的には内部モジュールをインポートする
+# ここではモックとして定義
+class PowerShellSession:
+    """
+    PowerShellセッションのモッククラス
+    後で実装に置き換える
+    """
+    def __init__(self, settings=None):
+        self.settings = settings
+        
+    async def __aenter__(self):
+        return self
+        
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+        
+    async def execute(self, command):
+        return f"モック出力: {command}"
+
+# 一時的なモッククラス
+class SessionManager:
+    def __init__(self, settings=None):
+        self.settings = settings
+        
+class CommandExecutor:
+    def __init__(self, session_manager, settings=None):
+        self.session_manager = session_manager
+        self.settings = settings
+        
+    def execute_sync(self, command):
+        return f"モック出力: {command}"
 
 class CommandResult(BaseModel):
     """コマンド実行結果を表すクラス"""
@@ -206,94 +235,100 @@ class SimplePowerShellController:
         except Exception as e:
             return CommandResult(
                 output="",
-                error=f"予期しないエラー: {str(e)}",
+                error=str(e),
                 success=False,
-                details={"error_type": "unexpected_error", "command": command}
+                details={"error_type": "unknown_error", "command": command}
             )
 
     async def run_commands(self, commands: List[str]) -> List[CommandResult]:
         """
-        複数のPowerShellコマンドを順に実行し、結果のリストを返します。
-
+        複数のPowerShellコマンドを連続して実行します。
+        
         Args:
-            commands: 実行するPowerShellコマンドのリスト
-
+            commands: 実行するコマンドのリスト
+            
         Returns:
-            List[CommandResult]: 各コマンドの実行結果のリスト
+            各コマンドの実行結果のリスト
         """
         results = []
-        for command in commands:
-            result = await self.run_command(command)
+        for cmd in commands:
+            result = await self.run_command(cmd)
             results.append(result)
-            # エラーが発生した場合は残りのコマンドを実行しない
             if not result.success:
                 break
         return results
 
     def _run_async_in_thread(self, coro):
-        """非同期コルーチンをスレッドプールで実行する"""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
+        """
+        非同期関数をスレッドで実行します。
+        
+        Args:
+            coro: 実行する非同期コルーチン
+            
+        Returns:
+            コルーチンの結果
+        """
+        loop = self._get_or_create_loop()
+        return asyncio.run_coroutine_threadsafe(coro, loop).result()
 
     def execute_command_result(self, command: str) -> Result[str, Union[PowerShellExecutionError, PowerShellTimeoutError, Exception]]:
         """
-        PowerShellコマンドを実行し、Result型で結果を返します。
-
+        単一のPowerShellコマンドを実行し、Result型で結果を返します。
+        
         Args:
-            command: 実行するPowerShellコマンド
-
+            command: 実行するコマンド
+            
         Returns:
-            Result[str, Exception]: 成功した場合はOk(output)、失敗した場合はErr(exception)
+            Result型の結果
         """
         try:
-            result = self.execute_command_sync(command)
-            return Ok(result)
-        except PowerShellError as e:
-            self.logger.error(
-                f"コマンド実行エラー (Result)", 
-                command=command,
-                error=str(e),
-                error_type=type(e).__name__
-            )
+            output = self.execute_command_sync(command)
+            return Ok(output)
+        except PowerShellExecutionError as e:
+            self.logger.error(f"コマンド実行エラー: {e}")
+            return Err(e)
+        except PowerShellTimeoutError as e:
+            self.logger.error(f"コマンド実行タイムアウト: {e}")
             return Err(e)
         except Exception as e:
-            self.logger.error(
-                f"予期しないエラー (Result)", 
-                command=command,
-                error=str(e),
-                error_type=type(e).__name__
-            )
-            error = PowerShellExecutionError(f"コマンド実行エラー: {e}")
-            return Err(error)
+            self.logger.error(f"予期しないエラー: {e}")
+            if isinstance(e, PowerShellError):
+                return Err(e)
+            else:
+                return Err(PowerShellExecutionError(f"コマンド実行エラー: {e}"))
 
     def execute_commands_in_session(self, commands: List[str]) -> List[Any]:
         """
-        複数のコマンドを同一セッションで連続実行します。
+        単一のセッションで複数のコマンドを実行します。
         
         Args:
             commands: 実行するコマンドのリスト
             
         Returns:
-            List[Any]: 各コマンドの実行結果のリスト
+            各コマンドの実行結果のリスト
         """
-        return self._command_executor.execute_commands_in_session(commands)
+        results = []
+        for cmd in commands:
+            output = self.execute_command(cmd)
+            results.append(output)
+        return results
 
     @as_result
     def execute_commands_in_session_result(self, commands: List[str]) -> Result[List[str], PowerShellError]:
         """
-        複数のコマンドを同一セッションで連続実行し、Result型で結果を返します。
+        単一のセッションで複数のコマンドを実行し、Result型で結果を返します。
         
         Args:
             commands: 実行するコマンドのリスト
             
         Returns:
-            Result[List[str], PowerShellError]: 成功の場合はOk(出力のリスト)、失敗の場合はErr(エラー)
+            Result型の結果
         """
-        return self._command_executor.execute_commands_in_session_result(commands)
+        results = []
+        for cmd in commands:
+            output = self.execute_command(cmd)
+            results.append(output)
+        return results
 
     def execute_script(self, script: str) -> str:
         """
@@ -303,99 +338,120 @@ class SimplePowerShellController:
             script: 実行するスクリプト
             
         Returns:
-            str: スクリプトの実行結果
+            スクリプトの実行結果
         """
-        return self._command_executor.execute_script(script)
+        self.logger.debug(f"スクリプトを実行します: {script[:50]}...")
+        return self.execute_command(script)
 
     def execute_script_result(self, script: str) -> Result[str, Union[PowerShellExecutionError, PowerShellTimeoutError, Exception]]:
         """
         PowerShellスクリプトを実行し、Result型で結果を返します。
-
+        
         Args:
-            script: 実行するPowerShellスクリプト
-
+            script: 実行するスクリプト
+            
         Returns:
-            Result[str, Exception]: 成功した場合はOk(output)、失敗した場合はErr(exception)
+            Result型の結果
         """
         return self.execute_command_result(script)
 
     async def close(self) -> None:
         """
-        非同期でコントローラーのリソースを解放します。
+        コントローラーを閉じます。
         """
-        # 既存のセッションを閉じる
-        if not self._closed and self.session:
+        if self._closed:
+            return
+
+        self.logger.debug("コントローラーを閉じています...")
+        self._closed = True
+
+        # セッションを閉じる
+        if self.session:
             try:
                 await self.session.__aexit__(None, None, None)
-                await self.session.cleanup()
-            except Exception as e:
-                logger.error(f"セッションのクリーンアップ中にエラーが発生: {e}")
-            finally:
                 self.session = None
-                self._closed = True
-                self._executor.shutdown(wait=False)
-        
-        # SessionManagerを閉じる
-        await self._session_manager.close()
+            except Exception as e:
+                self.logger.error(f"セッションを閉じる際にエラーが発生しました: {e}")
+
+        # ExecutorPoolを閉じる
+        try:
+            self._executor.shutdown(wait=False)
+        except Exception as e:
+            self.logger.error(f"ThreadPoolExecutorの終了中にエラーが発生しました: {e}")
 
     def close_sync(self) -> None:
         """
-        同期的にコントローラーのリソースを解放します。
-        
-        注意: この実装はテスト中の警告を避けるために特殊な処理を含みます。
+        コントローラーを同期的に閉じます。
         """
-        # テスト環境での警告を避けるために特殊なロジックを導入
-        try:
-            # 新しいループを作成
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        if self._closed:
+            return
             
-            # コルーチンをタスクに変換して実行（直接run_until_completeを使わない）
-            # これによりテスト中の警告を軽減
+        self.logger.debug("コントローラーを同期的に閉じています...")
+        self._closed = True
+        
+        # セッションを閉じる（簡易実装）
+        if self.session and self._loop and self._loop.is_running():
             try:
-                close_task = loop.create_task(self.close())
-                loop.run_until_complete(close_task)
-            finally:
-                # 必ずループをクリーンアップ
-                loop.close()
-        except Exception:
-            # 例外オブジェクト自体をキャプチャしない
-            import traceback
-            error_str = traceback.format_exc()
-            self.logger.error(f"同期的クローズ処理でエラー発生:\n{error_str}")
+                future = asyncio.run_coroutine_threadsafe(self.session.__aexit__(None, None, None), self._loop)
+                future.result(timeout=5.0)
+                self.session = None
+            except Exception as e:
+                self.logger.error(f"セッションを同期的に閉じる際にエラーが発生しました: {e}")
+        
+        # ExecutorPoolを閉じる
+        try:
+            self._executor.shutdown(wait=False)
+        except Exception as e:
+            self.logger.error(f"ThreadPoolExecutorの終了中にエラーが発生しました: {e}")
 
     def _get_or_create_loop(self) -> asyncio.AbstractEventLoop:
         """
-        既存のイベントループを取得するか、新しいループを作成します。
+        既存のループを取得するか、新しいループを作成します。
         
         Returns:
-            asyncio.AbstractEventLoop: イベントループ
+            イベントループ
         """
+        # 既存のループがある場合はそれを返す
+        if self._loop and self._loop.is_running():
+            return self._loop
+            
+        # 現在のスレッドにループがあるか確認
         try:
-            # asyncio.get_event_loopは非推奨とされることがあるため、現在の推奨方法を使用
-            try:
-                # Python 3.7+
-                return asyncio.get_running_loop()
-            except AttributeError:
-                # Python 3.6以前のために残す (get_running_loopがない場合)
-                return asyncio.get_event_loop()
+            loop = asyncio.get_event_loop()
+            if not loop.is_closed():
+                self._loop = loop
+                return loop
         except RuntimeError:
-            # 'There is no current event loop in thread'
-            loop = asyncio.new_event_loop()
+            # 現在のスレッドにループがない場合は新しく作成
+            pass
+            
+        # 新しいループを作成して設定
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        self._loop = loop
+        
+        # ループを別スレッドで実行
+        def run_event_loop(loop):
             asyncio.set_event_loop(loop)
-            return loop
+            loop.run_forever()
+            
+        threading.Thread(target=run_event_loop, args=(loop,), daemon=True).start()
+        return loop
 
     def __del__(self) -> None:
         """
-        オブジェクトが破棄される際にリソースを解放します。
-        デストラクタでの非同期処理は避けるべきですが、リソースリークを防ぐため実装しています。
+        デストラクタ
+        オブジェクトが破棄される前にリソースを解放します。
         """
-        if not self._closed and hasattr(self, 'session') and self.session:
-            # 警告回避のため、close_syncを直接呼び出すのではなく、
-            # ここではログだけ出力してリソース解放を促す
-            logger.warning(
-                "SimplePowerShellControllerがデストラクタで解放されました。"
-                "コンテキストマネージャまたはclose()メソッドを明示的に使用してリソースを適切に解放してください。"
-            )
-            # 可能な限り安全にセッションをマークする
-            self._closed = True 
+        if not self._closed:
+            # 同期的に閉じる
+            try:
+                self.close_sync()
+            except Exception as e:
+                # デストラクタでは例外を投げてはいけない
+                pass
+                
+__all__ = [
+    'SimplePowerShellController',
+    'CommandResult'
+] 

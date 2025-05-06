@@ -254,14 +254,36 @@ class PowerShellControllerSettings(BaseSettings):
     
     def with_env_vars(self, **env_vars: str) -> 'PowerShellControllerSettings':
         """
-        環境変数を追加した新しい設定を作成します。
+        新しい環境変数を追加した設定を返します。
         
         Args:
             **env_vars: 追加する環境変数
             
         Returns:
-            新しい設定インスタンス
+            更新された設定インスタンス
         """
-        new_settings = self.model_copy(deep=True)
-        new_settings.env_vars.update(env_vars)
-        return new_settings 
+        new_env_vars = self.env_vars.copy()
+        new_env_vars.update(env_vars)
+        return self.update(env_vars=new_env_vars)
+    
+    def with_args(self, *args: str) -> 'PowerShellControllerSettings':
+        """
+        新しい引数を追加した設定を返します。
+        
+        Args:
+            *args: 追加する引数
+            
+        Returns:
+            更新された設定インスタンス
+        """
+        new_args = self.additional_args.copy()
+        new_args.extend(args)
+        return self.update(additional_args=new_args)
+
+__all__ = [
+    'PowerShellControllerSettings',
+    'RetryConfig',
+    'TimeoutConfig',
+    'PowerShellConfig',
+    'LoggingConfig'
+] 
