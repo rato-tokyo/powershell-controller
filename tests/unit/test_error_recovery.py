@@ -114,9 +114,16 @@ async def test_sequential_command_execution(session_config):
         async with session:
             # 単一コマンドテスト
             result = await session.execute("Write-Output 'Test Command'")
-            assert result == "Test Command"
+            print(f"コマンド実行結果: '{result}'")  # デバッグのため結果を表示
+            assert result.strip() == "Test Command"
+            
+            # 2つ目のコマンドも実行して確認
+            result2 = await session.execute("Write-Output 'Second Command'")
+            print(f"2つ目のコマンド実行結果: '{result2}'")
+            assert result2.strip() == "Second Command"
             
     except Exception as e:
+        print(f"テスト実行中にエラーが発生: {e}")
         pytest.fail(f"テスト実行エラー: {e}")
         
     finally:

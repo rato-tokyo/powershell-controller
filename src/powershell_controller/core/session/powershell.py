@@ -218,6 +218,9 @@ Write-Output "SESSION_END"
             
         Returns:
             (出力リスト, エラーリスト)のタプル
+            
+        Raises:
+            PowerShellTimeoutError: タイムアウト時に発生
         """
         if timeout is None:
             timeout = self._read_timeout
@@ -241,6 +244,9 @@ Write-Output "SESSION_END"
                     # 何かしらの出力を受け取った後で一定時間出力がなければ終了
                     if output_lines:
                         break
+                    # 全体のタイムアウトをチェック
+                    if time.time() - start_time >= timeout:
+                        raise PowerShellTimeoutError(f"読み取りがタイムアウトしました (timeout={timeout}s)")
                     continue
                     
             # エラーキューから読み取り
@@ -255,6 +261,9 @@ Write-Output "SESSION_END"
                 except asyncio.TimeoutError:
                     break
                     
+        except PowerShellTimeoutError:
+            # タイムアウトエラーはそのまま再スロー
+            raise
         except Exception as e:
             self.logger.error(f"Error reading queues: {e}")
             
@@ -342,8 +351,16 @@ Write-Output "SESSION_END"
             self.process.stdin.write(command_bytes)
             await self.process.stdin.drain()
             
-            # 応答を待機
-            outputs, errors = await self._read_queues(timeout=self.timeout)
+            # タイムアウト付きで実行
+            # PowerShellはブロッキング操作なので、タイムアウトを強制的に設定
+            try:
+                async with asyncio.timeout(self.timeout):
+                    outputs, errors = await self._read_queues()
+            except asyncio.TimeoutError:
+                error_msg = f"コマンド実行がタイムアウトしました: {command} (timeout={self.timeout}s)"
+                self.logger.error(error_msg)
+                # ここで明示的にタイムアウト例外を発生させる
+                raise PowerShellTimeoutError(error_msg)
             
             # エラーチェック
             if errors:
@@ -357,11 +374,9 @@ Write-Output "SESSION_END"
             self.logger.debug(f"Command executed successfully: {result}")
             return result
             
-        except asyncio.TimeoutError:
-            error_msg = f"コマンド実行がタイムアウトしました: {command}"
-            self.logger.error(error_msg)
-            raise PowerShellTimeoutError(error_msg)
-            
+        except PowerShellTimeoutError:
+            # タイムアウトエラーを再スロー
+            raise
         except Exception as e:
             if isinstance(e, (PowerShellTimeoutError, ProcessError)):
                 raise
@@ -385,8 +400,12 @@ Write-Output "SESSION_END"
         # コマンド自体と"COMMAND_SUCCESS"を除外する
         filtered_outputs = []
         for output in outputs:
+            # コマンドプロンプトの行をスキップ
+            if output.startswith("PS ") and ">" in output:
+                continue
+                
             # コマンド自体をスキップ
-            if output == self._last_command:
+            if output.strip() == self._last_command.strip():
                 continue
                 
             # 成功マーカーをスキップ

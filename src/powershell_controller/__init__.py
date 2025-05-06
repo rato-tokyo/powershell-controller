@@ -4,9 +4,12 @@ PowerShell Controller package
 import logging
 import sys
 from loguru import logger
+from beartype import BeartypeConf
+from beartype.claw import beartype_this_package
 
 # APIの公開
 from .utils.config import PowerShellControllerSettings
+from .utils.result_helper import ResultHandler
 from .core.errors import (
     PowerShellError,
     PowerShellTimeoutError,
@@ -14,9 +17,17 @@ from .core.errors import (
     ProcessError,
     CommunicationError
 )
+from .simple import SimplePowerShellController
 
 # バージョン情報
 __version__ = "0.1.0"
+
+# beartype実行時型チェックをアクティブ化
+beartype_conf = BeartypeConf(
+    is_debug=True,
+    violation_type=Exception,
+)
+beartype_this_package(conf=beartype_conf)
 
 # 古いロガーの設定をクリア
 logging.basicConfig(
@@ -46,5 +57,7 @@ __all__ = [
     "PowerShellExecutionError",
     "ProcessError",
     "CommunicationError",
+    "ResultHandler",
+    "SimplePowerShellController",
     "logger"
 ] 
