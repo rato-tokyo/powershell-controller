@@ -1,129 +1,210 @@
 """
-Result型を使用したヘルパー関数
+Result型を使用したエラーハンドリングのヘルパークラス
 """
-from typing import Any, Callable, TypeVar, Generic, Optional, Dict, List, Union, Tuple, cast, overload
+import inspect
+import functools
+from typing import Any, TypeVar, Callable, Generic, Optional, Dict, List, Union, Type
+import traceback
+from loguru import logger
 from result import Result, Ok, Err
-from ..core.errors import PowerShellError, PowerShellExecutionError, PowerShellTimeoutError
+
+from ..core.errors import PowerShellError
 
 T = TypeVar('T')
 E = TypeVar('E', bound=Exception)
-F = TypeVar('F')  # 関数の戻り値型用の型変数
 
-class ResultHandler(Generic[T, E]):
+class ResultHandler:
     """
-    Result型の処理を簡易化するヘルパークラス
-    
-    Example:
-        # 成功の場合
-        result = ResultHandler.from_function(lambda: "success")
-        value = result.unwrap_or("default")  # "success"
-        
-        # 失敗の場合
-        def failing_func():
-            raise ValueError("エラー")
-            
-        result = ResultHandler.from_function(failing_func)
-        value = result.unwrap_or("default")  # "default"
+    Result型を使用したエラーハンドリングのためのヘルパークラス
+    エラーハンドリングを一貫性ある方法で処理します。
     """
     
     @staticmethod
-    def from_function(func: Callable[..., F], *args: Any, **kwargs: Any) -> Result[F, PowerShellError]:
+    def from_function(func: Callable[..., T], *args, **kwargs) -> Result[T, PowerShellError]:
         """
-        関数をResult型でラップする
+        関数をResult型でラップします。
         
         Args:
             func: ラップする関数
-            *args: 関数に渡す位置引数
-            **kwargs: 関数に渡すキーワード引数
+            *args: 関数の引数
+            **kwargs: 関数のキーワード引数
             
         Returns:
             Result型
         """
+        logger.debug(f"Executing function {func.__name__} with Result wrapper")
         try:
             return Ok(func(*args, **kwargs))
         except PowerShellError as e:
+            logger.debug(f"PowerShell error caught in ResultHandler: {e}")
             return Err(e)
         except Exception as e:
-            return Err(PowerShellExecutionError(str(e)))
+            # 一般的な例外をPowerShellErrorに変換
+            module_name = inspect.getmodule(func).__name__ if inspect.getmodule(func) else "unknown"
+            func_name = func.__name__ if hasattr(func, "__name__") else "unknown"
+            logger.debug(f"General exception caught in ResultHandler: {e}")
+            
+            # トレースバックを取得
+            error_details = traceback.format_exc()
+            
+            # PowerShellErrorに変換
+            ps_error = PowerShellError(
+                f"関数 {module_name}.{func_name} の実行中にエラーが発生しました", 
+                details=error_details,
+                cause=e
+            )
+            return Err(ps_error)
     
     @staticmethod
-    def from_value(value: T) -> Result[T, PowerShellError]:
+    def from_async_function(async_func: Callable[..., Any], *args, **kwargs) -> Result[Any, PowerShellError]:
         """
-        値をOk(value)でラップする
+        非同期関数をResult型でラップします。
         
         Args:
-            value: ラップする値
+            async_func: ラップする非同期関数
+            *args: 関数の引数
+            **kwargs: 関数のキーワード引数
             
         Returns:
             Result型
         """
-        return Ok(value)
+        import asyncio
+        
+        logger.debug(f"Executing async function {async_func.__name__} with Result wrapper")
+        try:
+            # イベントループを取得
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                # イベントループがない場合は新しく作成
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+            result = loop.run_until_complete(async_func(*args, **kwargs))
+            return Ok(result)
+        except PowerShellError as e:
+            logger.debug(f"PowerShell error caught in async ResultHandler: {e}")
+            return Err(e)
+        except Exception as e:
+            # 一般的な例外をPowerShellErrorに変換
+            module_name = inspect.getmodule(async_func).__name__ if inspect.getmodule(async_func) else "unknown"
+            func_name = async_func.__name__ if hasattr(async_func, "__name__") else "unknown"
+            logger.debug(f"General exception caught in async ResultHandler: {e}")
+            
+            # トレースバックを取得
+            error_details = traceback.format_exc()
+            
+            # PowerShellErrorに変換
+            ps_error = PowerShellError(
+                f"非同期関数 {module_name}.{func_name} の実行中にエラーが発生しました", 
+                details=error_details,
+                cause=e
+            )
+            return Err(ps_error)
     
     @staticmethod
-    def from_error(error: Union[str, Exception]) -> Result[T, PowerShellError]:
+    def handle_error(result: Result[T, E], default_value: Optional[T] = None) -> T:
         """
-        エラーをErr(error)でラップする
+        Result型の結果を処理し、エラーの場合はデフォルト値を返します。
         
         Args:
-            error: エラーメッセージまたは例外
+            result: 処理するResult型
+            default_value: エラー時のデフォルト値
             
         Returns:
-            Result型
+            Okならその値、Errならデフォルト値
         """
-        if isinstance(error, str):
-            return Err(PowerShellExecutionError(error))
-        elif isinstance(error, PowerShellError):
-            return Err(error)
-        else:
-            return Err(PowerShellExecutionError(str(error)))
+        if result.is_ok():
+            return result.unwrap()
+        logger.debug(f"Error handled with default value: {result.unwrap_err()}")
+        return default_value
     
     @staticmethod
-    def combine(results: List[Result[T, E]]) -> Result[List[T], E]:
+    def unwrap_or_log(result: Result[T, E], logger_instance: Optional[logger] = None) -> Optional[T]:
         """
-        複数のResult型を結合する
-        すべてOkの場合はOk([values])、1つでもErrの場合は最初のErrを返す
+        Result型の結果を取り出し、エラーの場合はログに記録してNoneを返します。
+        
+        Args:
+            result: 処理するResult型
+            logger_instance: 使用するロガー（Noneの場合はデフォルトのロガーを使用）
+            
+        Returns:
+            Okならその値、ErrならNone
+        """
+        log = logger_instance or logger
+        
+        if result.is_ok():
+            return result.unwrap()
+        
+        error = result.unwrap_err()
+        log.error(f"Error unwrapping result: {error}")
+        return None
+    
+    @staticmethod
+    def chain_results(results: List[Result[T, E]]) -> Result[List[T], E]:
+        """
+        複数のResult型を1つのリスト結果にチェーンします。
+        すべてがOkならばOk(値のリスト)を返し、1つでもErrがあればErrを返します。
         
         Args:
             results: Result型のリスト
             
         Returns:
-            結合したResult型
+            チェーンされたResult型
         """
-        values: List[T] = []
+        values = []
         for result in results:
             if result.is_err():
-                return cast(Result[List[T], E], result)
+                return Err(result.unwrap_err())
             values.append(result.unwrap())
         return Ok(values)
+
+# デコレータ関数
+def as_result(func):
+    """
+    関数の戻り値をResult型にラップするデコレータ
     
-    @staticmethod
-    def unwrap_or(result: Result[T, E], default: T) -> T:
-        """
-        Result型から値を取り出す。Errの場合はデフォルト値を返す
-        
-        Args:
-            result: Result型
-            default: デフォルト値
-            
-        Returns:
-            取り出した値またはデフォルト値
-        """
-        if result.is_ok():
-            return result.unwrap()
-        return default
+    Args:
+        func: デコレートする関数
     
-    @staticmethod
-    def unwrap_or_else(result: Result[T, E], func: Callable[[E], T]) -> T:
-        """
-        Result型から値を取り出す。Errの場合は関数を実行して返す
-        
-        Args:
-            result: Result型
-            func: エラー値を処理する関数
+    Returns:
+        Result型を返すラップ関数
+    """
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return ResultHandler.from_function(func, *args, **kwargs)
+    return wrapper
+
+def as_async_result(func):
+    """
+    非同期関数の戻り値をResult型にラップするデコレータ
+    
+    Args:
+        func: デコレートする非同期関数
+    
+    Returns:
+        Result型を返すラップ関数
+    """
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            result = await func(*args, **kwargs)
+            return Ok(result)
+        except PowerShellError as e:
+            return Err(e)
+        except Exception as e:
+            # 一般的な例外をPowerShellErrorに変換
+            module_name = inspect.getmodule(func).__name__ if inspect.getmodule(func) else "unknown"
+            func_name = func.__name__ if hasattr(func, "__name__") else "unknown"
             
-        Returns:
-            取り出した値または関数の結果
-        """
-        if result.is_ok():
-            return result.unwrap()
-        return func(result.unwrap_err()) 
+            # トレースバックを取得
+            error_details = traceback.format_exc()
+            
+            # PowerShellErrorに変換
+            ps_error = PowerShellError(
+                f"非同期関数 {module_name}.{func_name} の実行中にエラーが発生しました", 
+                details=error_details,
+                cause=e
+            )
+            return Err(ps_error)
+    return wrapper 

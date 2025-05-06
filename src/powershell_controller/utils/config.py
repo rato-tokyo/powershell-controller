@@ -18,6 +18,88 @@ class RetryConfig(BaseModel):
     max_delay: float = Field(default=5.0, description="最大待機時間（秒）")
     jitter: float = Field(default=0.1, description="ジッター（ランダム化係数）")
 
+class TimeoutConfig(BaseModel):
+    """タイムアウト設定"""
+    default: float = Field(default=30.0, description="デフォルトのタイムアウト時間（秒）")
+    startup: float = Field(default=10.0, description="プロセス起動用のタイムアウト（秒）")
+    execution: float = Field(default=5.0, description="コマンド実行用のタイムアウト（秒）")
+    read: float = Field(default=0.5, description="キュー読み取り用のタイムアウト（秒）")
+    shutdown: float = Field(default=5.0, description="シャットダウン用のタイムアウト（秒）")
+    cleanup: float = Field(default=3.0, description="クリーンアップ用のタイムアウト（秒）")
+
+class PowerShellConfig(BaseModel):
+    """PowerShell固有の設定"""
+    init_command: str = Field(
+        default="""
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$OutputEncoding = [Text.Encoding]::UTF8
+$Host.UI.RawUI.WindowTitle = "PowerShell Controller Session"
+Write-Output "SESSION_READY"
+While ($true) {
+    $command = Read-Host
+    if ($command -eq "EXIT") { break }
+    try {
+        $result = Invoke-Expression -Command $command -ErrorAction Stop
+        if ($null -ne $result) {
+            try {
+                # JSON変換を試みるが、失敗したら普通の文字列として出力
+                $json = ConvertTo-Json -InputObject $result -Depth 5 -Compress -ErrorAction SilentlyContinue
+                if ($null -ne $json) {
+                    Write-Output $json
+                } else {
+                    Write-Output $result.ToString()
+                }
+            } catch {
+                Write-Output $result.ToString()
+            }
+        }
+        Write-Output "COMMAND_SUCCESS"
+    } catch {
+        $errorMessage = $_.Exception.Message
+        Write-Error "ERROR: $errorMessage"
+        Write-Output "COMMAND_ERROR"
+    }
+}
+Write-Output "SESSION_END"
+""",
+        description="PowerShellの初期化コマンド"
+    )
+    
+    standard_env_vars: Dict[str, str] = Field(
+        default_factory=lambda: {
+            "POWERSHELL_TELEMETRY_OPTOUT": "1",  # テレメトリを無効化
+            "PSModulePath": "",  # モジュールパスをクリア
+            "PATHEXT": ".COM;.EXE;.BAT;.CMD",  # 基本的な実行ファイル拡張子のみ
+            "POWERSHELL_UPDATECHECK": "Off",  # 更新チェックを無効化
+            "POWERSHELL_MANAGED_MODE": "Off",  # マネージドモードを無効化
+            "POWERSHELL_BASIC_MODE": "On",  # 基本モードを有効化
+            "POWERSHELL_DISABLE_EXTENSIONS": "1"  # 拡張機能を無効化
+        },
+        description="PowerShell実行時に設定する標準環境変数"
+    )
+    
+    standard_args: List[str] = Field(
+        default_factory=lambda: [
+            "-Version", "5.1",
+            "-NoLogo",
+            "-NoProfile", 
+            "-ExecutionPolicy", "Bypass",
+            "-NoExit"
+        ],
+        description="PowerShell実行時に使用する標準引数"
+    )
+
+class LoggingConfig(BaseModel):
+    """ログ設定"""
+    format: str = Field(
+        default="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        description="ログフォーマット"
+    )
+    level: str = Field(default="INFO", description="ログレベル")
+    capture_stdout: bool = Field(default=True, description="標準出力をキャプチャするかどうか")
+
 class PowerShellControllerSettings(BaseSettings):
     """PowerShellコントローラーの設定"""
     
@@ -41,16 +123,27 @@ class PowerShellControllerSettings(BaseSettings):
     )
     
     # タイムアウト設定
-    timeout: float = Field(
-        default=30.0,
-        description="デフォルトのタイムアウト時間（秒）",
-        json_schema_extra={"env": "PS_CTRL_TIMEOUT"}
+    timeouts: TimeoutConfig = Field(
+        default_factory=TimeoutConfig,
+        description="タイムアウト設定"
     )
     
     # リトライ設定
-    retry_config: RetryConfig = Field(
+    retry: RetryConfig = Field(
         default_factory=RetryConfig,
         description="リトライ設定"
+    )
+    
+    # PowerShell設定
+    powershell: PowerShellConfig = Field(
+        default_factory=PowerShellConfig,
+        description="PowerShell固有の設定"
+    )
+    
+    # ログ設定
+    logging: LoggingConfig = Field(
+        default_factory=LoggingConfig,
+        description="ログ設定"
     )
     
     # 環境変数
@@ -63,6 +156,12 @@ class PowerShellControllerSettings(BaseSettings):
     additional_args: List[str] = Field(
         default_factory=list,
         description="PowerShellに渡す追加の引数"
+    )
+    
+    # テスト用モック設定
+    use_mock: bool = Field(
+        default=False,
+        description="テスト用にモックを使用するかどうか"
     )
     
     model_config = SettingsConfigDict(
@@ -109,6 +208,33 @@ class PowerShellControllerSettings(BaseSettings):
         else:
             # Linux/macOSの場合はpwshを使用
             return "pwsh"
+    
+    def get_all_env_vars(self) -> Dict[str, str]:
+        """
+        すべての環境変数を取得します。
+        
+        Returns:
+            環境変数の辞書
+        """
+        # 基本の環境変数を取得
+        env = os.environ.copy()
+        
+        # 標準の環境変数を適用
+        env.update(self.powershell.standard_env_vars)
+        
+        # ユーザー定義の環境変数を適用（これにより標準設定を上書き可能）
+        env.update(self.env_vars)
+        
+        return env
+    
+    def get_all_args(self) -> List[str]:
+        """
+        すべてのコマンドライン引数を取得します。
+        
+        Returns:
+            引数のリスト
+        """
+        return self.powershell.standard_args + self.additional_args
     
     def update(self, **kwargs: Any) -> 'PowerShellControllerSettings':
         """

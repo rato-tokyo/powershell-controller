@@ -1,16 +1,111 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "powershell_controller"
 version = "0.1.0"
 description = "PowerShell 7 controller for MCP"
-requires-python = ">=3.8"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Systems Administration",
+]
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+dependencies = [
+    "loguru>=0.7.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "tenacity>=8.0.0",
+    "psutil>=5.9.0",
+    "asyncio>=3.4.3",
+    "types-psutil>=5.9.0",
+    "result>=0.13.1",
+    "rich>=13.0.0",
+    "beartype>=0.16.0",
+    "typing-extensions>=4.2.0",
+    "aiohttp>=3.8.0",
+    "aiodns>=3.0.0",
+    "cchardet>=2.1.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/powershell_controller"
+Issues = "https://github.com/yourusername/powershell_controller/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.18.0",
+    "pytest-timeout>=2.1.0",
+    "pytest-cov>=3.0.0",
+    "pytest-mock>=3.12.0",
+    "pytest-randomly>=3.15.0",
+    "pytest-xdist>=3.5.0",
+    "hypothesis>=6.98.0",
+    "deepdiff>=6.7.0",
+    "black>=22.3.0",
+    "isort>=5.10.1",
+    "ruff>=0.0.270",
+    "mypy>=0.950",
+    "flake8>=4.0.1",
+    "pylint>=2.13.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+    "--asyncio-mode=auto",
+    "--timeout=300",
+    "-v",
+    "--cov=src",
+    "--cov-report=html",
+    "--cov-report=term-missing:skip-covered",
+    "--randomly-seed=last",
+]
+markers = [
+    "asyncio: mark a test as an async test",
+    "timeout: mark a test as having a timeout",
+    "skipif_platform: skip test on specific platform",
+    "skipif_ci: skip test in CI environment",
+    "skipif_not_windows: skip test if not running on Windows",
+]
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+junit_family = "xunit2"
+junit_duration_report = "call"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.pytest.env]
+POWERSHELL_TEST_MOCK = "true"
 
 [tool.ruff]
 line-length = 100
-target-version = "py38"
+target-version = "py312"
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -25,7 +120,7 @@ ignore = []
 known-first-party = ["powershell_controller"]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -37,11 +132,6 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-addopts = "-v --cov=powershell_controller --randomly-seed=last --hypothesis-profile=default"
 
 [tool.hypothesis]
 deadline = 500

@@ -1,5 +1,7 @@
 """
-PowerShell Controller package
+PowerShellコントローラーパッケージ
+
+PowerShellプロセスとの対話を簡単に行うためのライブラリ
 """
 import logging
 import sys
@@ -12,12 +14,16 @@ from .utils.config import PowerShellControllerSettings
 from .utils.result_helper import ResultHandler
 from .core.errors import (
     PowerShellError,
-    PowerShellTimeoutError,
     PowerShellExecutionError,
+    PowerShellTimeoutError,
     ProcessError,
-    CommunicationError
+    CommunicationError,
+    ConfigurationError,
+    SessionError,
+    as_result,
+    as_async_result
 )
-from .simple import SimplePowerShellController
+from .simple import SimplePowerShellController, CommandResult
 
 # バージョン情報
 __version__ = "0.1.0"
@@ -51,13 +57,23 @@ logger.configure(
 
 # エクスポート
 __all__ = [
+    # 設定
     "PowerShellControllerSettings",
+    # エラー
     "PowerShellError",
-    "PowerShellTimeoutError",
     "PowerShellExecutionError",
+    "PowerShellTimeoutError",
     "ProcessError",
     "CommunicationError",
+    "ConfigurationError",
+    "SessionError",
+    # ヘルパー
     "ResultHandler",
+    "as_result",
+    "as_async_result",
+    # コントローラー
     "SimplePowerShellController",
+    "CommandResult",
+    # ユーティリティ
     "logger"
 ] 

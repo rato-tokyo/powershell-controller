@@ -12,41 +12,59 @@ import queue
 import os
 import psutil
 from loguru import logger
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, RetryError
+import platform
+
 from ..errors import (
     PowerShellError,
     PowerShellTimeoutError,
     PowerShellExecutionError,
     ProcessError,
-    CommunicationError
+    CommunicationError,
+    ConfigurationError,
+    as_async_result
 )
 from ...infra.async_utils.process import AsyncProcessManager
 from ...infra.async_utils.test_helper import AsyncTestHelper
 from ...infra.ipc.protocol import IPCMessage, IPCProtocol, MessageType
+from ...utils.config import PowerShellControllerSettings
 from .base import BaseSession
 
 class PowerShellSession(BaseSession):
     """PowerShellセッションを管理するコンテキストマネージャ"""
     
-    def __init__(self, config: Optional[Dict[str, Any]] = None, timeout: float = 30.0):
+    def __init__(self, settings: Optional[PowerShellControllerSettings] = None, timeout: Optional[float] = None):
         """
         PowerShellセッションを初期化します。
         
         Args:
-            config: PowerShellの設定。Noneの場合はデフォルト設定を使用。
-            timeout: タイムアウト時間（秒）
+            settings: PowerShellの設定。Noneの場合はデフォルト設定を使用。
+            timeout: タイムアウト時間（秒）。Noneの場合は設定から取得。
         """
-        super().__init__(timeout)
-        self.config = config or {"log_level": "ERROR"}
+        # 設定を初期化
+        self.settings = settings or PowerShellControllerSettings()
+        
+        # タイムアウト値を設定（引数が優先）
+        actual_timeout = timeout or self.settings.timeouts.default
+        super().__init__(actual_timeout)
+        
+        # セッション状態の初期化
         self.process: Optional[asyncio.subprocess.Process] = None
         self._ps_process: Optional[psutil.Process] = None
         self._output_queue: asyncio.Queue = asyncio.Queue()
         self._error_queue: asyncio.Queue = asyncio.Queue()
         self._process_manager = AsyncProcessManager()
-        self._startup_timeout = 10.0  # プロセス起動用のタイムアウト（短縮）
-        self._execution_timeout = 5.0  # コマンド実行用のタイムアウト（短縮）
-        self._read_timeout = 0.5  # キュー読み取り用のタイムアウト（短縮）
-        self._last_command: str = ""  # 最後に実行したコマンド
+        
+        # タイムアウト設定
+        self._startup_timeout = self.settings.timeouts.startup
+        self._execution_timeout = self.settings.timeouts.execution
+        self._read_timeout = self.settings.timeouts.read
+        self._shutdown_timeout = self.settings.timeouts.shutdown
+        self._cleanup_timeout = self.settings.timeouts.cleanup
+        
+        # 状態追跡
+        self._last_command: str = ""
+        self._platform = platform.system().lower()
         self.logger = logger.bind(module="powershell_session")
         
     async def __aenter__(self) -> 'PowerShellSession':
@@ -56,92 +74,11 @@ class PowerShellSession(BaseSession):
             self._loop = asyncio.get_event_loop()
             
             # PowerShellプロセスを起動
-            startupinfo = None
-            if sys.platform == "win32":
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                
-            # 非同期プロセスを作成
-            async def create_process():
-                # PowerShellのパスを取得
-                powershell_path = "powershell.exe"
-                if os.path.exists("C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"):
-                    powershell_path = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
-                
-                # 環境変数を設定
-                env = os.environ.copy()
-                env.update({
-                    "POWERSHELL_TELEMETRY_OPTOUT": "1",  # テレメトリを無効化
-                    "PSModulePath": "",  # モジュールパスをクリア
-                    "PATHEXT": ".COM;.EXE;.BAT;.CMD",  # 基本的な実行ファイル拡張子のみ
-                    "POWERSHELL_UPDATECHECK": "Off",  # 更新チェックを無効化
-                    "POWERSHELL_MANAGED_MODE": "Off",  # マネージドモードを無効化
-                    "POWERSHELL_BASIC_MODE": "On",  # 基本モードを有効化
-                    "POWERSHELL_DISABLE_EXTENSIONS": "1"  # 拡張機能を無効化
-                })
-                
-                # 初期化コマンド
-                init_command = """
-$ErrorActionPreference = 'Stop'
-$ProgressPreference = 'SilentlyContinue'
-[Console]::OutputEncoding = [Text.Encoding]::UTF8
-$OutputEncoding = [Text.Encoding]::UTF8
-$Host.UI.RawUI.WindowTitle = "PowerShell Controller Session"
-Write-Output "SESSION_READY"
-While ($true) {
-    $command = Read-Host
-    if ($command -eq "EXIT") { break }
-    try {
-        $result = Invoke-Expression -Command $command -ErrorAction Stop
-        if ($null -ne $result) {
-            try {
-                # JSON変換を試みるが、失敗したら普通の文字列として出力
-                $json = ConvertTo-Json -InputObject $result -Depth 5 -Compress -ErrorAction SilentlyContinue
-                if ($null -ne $json) {
-                    Write-Output $json
-                } else {
-                    Write-Output $result.ToString()
-                }
-            } catch {
-                Write-Output $result.ToString()
-            }
-        }
-        Write-Output "COMMAND_SUCCESS"
-    } catch {
-        $errorMessage = $_.Exception.Message
-        Write-Error "ERROR: $errorMessage"
-        Write-Output "COMMAND_ERROR"
-    }
-}
-Write-Output "SESSION_END"
-"""
-                # 対話モードでプロセスを起動（高速起動オプション追加）
-                self.logger.debug(f"Starting PowerShell process: {powershell_path}")
-                process = await asyncio.create_subprocess_exec(
-                    powershell_path,
-                    "-Version", "5.1",
-                    "-NoLogo",
-                    "-NoProfile", 
-                    "-ExecutionPolicy", "Bypass",
-                    "-NoExit",  # プロセスが終了しないようにする
-                    "-Command", init_command,
-                    stdin=asyncio.subprocess.PIPE,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    startupinfo=startupinfo,
-                    env=env
-                )
-                
-                if not process or not process.pid:
-                    raise ProcessError("Failed to start PowerShell process")
-                
-                self.logger.debug(f"PowerShell process started with PID: {process.pid}")
-                return process
-                
             try:
                 # プロセスを作成
-                self.process = await asyncio.wait_for(
-                    create_process(),
+                self.logger.debug("PowerShellセッションを開始しています")
+                await asyncio.wait_for(
+                    self._start_powershell_process(),
                     timeout=self._startup_timeout
                 )
                 self.logger.info(f"PowerShell process started with PID {self.process.pid}")
@@ -149,12 +86,6 @@ Write-Output "SESSION_END"
             except asyncio.TimeoutError:
                 raise PowerShellTimeoutError(f"PowerShellセッションの初期化がタイムアウトしました（{self._startup_timeout}秒）")
             
-            # psutilプロセスを取得
-            if self.process and self.process.pid:
-                self._ps_process = psutil.Process(self.process.pid)
-                if not self._ps_process.is_running():
-                    raise ProcessError("PowerShell process failed to start")
-                
             # 出力とエラーの読み取りタスクを開始
             self._start_io_tasks()
             
@@ -162,11 +93,11 @@ Write-Output "SESSION_END"
             try:
                 await asyncio.wait_for(
                     self._wait_for_ready(),
-                    timeout=10.0
+                    timeout=self._startup_timeout
                 )
                 self.logger.info("PowerShell session initialized successfully")
             except asyncio.TimeoutError:
-                raise PowerShellTimeoutError("PowerShell session initialization timed out")
+                raise PowerShellTimeoutError(f"PowerShell session initialization timed out after {self._startup_timeout} seconds")
             except Exception as e:
                 raise ProcessError(f"Failed to initialize PowerShell session: {e}")
             
@@ -175,7 +106,76 @@ Write-Output "SESSION_END"
         except Exception as e:
             self.logger.error(f"Error during PowerShell session initialization: {e}")
             await self._cleanup_resources()
-            raise
+            raise PowerShellError.from_exception(e, "PowerShellセッションの初期化に失敗しました")
+    
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=0.5, min=1, max=5),
+        retry=retry_if_exception_type(ProcessError)
+    )
+    async def _start_powershell_process(self) -> None:
+        """PowerShellプロセスを起動します。"""
+        try:
+            # 起動情報の設定
+            startupinfo = None
+            if sys.platform == "win32":
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                
+            # PowerShellのパスを取得
+            powershell_path = self.settings.get_ps_path()
+            
+            # 環境変数を設定
+            env = self.settings.get_all_env_vars()
+            
+            # 引数を取得
+            args = self.settings.get_all_args()
+            
+            # 初期化コマンド
+            init_command = self.settings.powershell.init_command
+            
+            # プロセス起動
+            self.logger.debug(f"Starting PowerShell process: {powershell_path}")
+            self.process = await asyncio.create_subprocess_exec(
+                powershell_path,
+                *args,
+                "-Command", init_command,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                startupinfo=startupinfo,
+                env=env
+            )
+            
+            if not self.process or not self.process.pid:
+                raise ProcessError("Failed to start PowerShell process")
+            
+            # プロセスの存在確認
+            self._verify_process_running()
+        
+        except Exception as e:
+            self.logger.error(f"プロセス起動エラー: {e}")
+            raise ProcessError(f"PowerShellプロセスの起動に失敗しました: {e}")
+    
+    def _verify_process_running(self) -> None:
+        """プロセスが実際に動作しているか確認します"""
+        if not self.process or not self.process.pid:
+            raise ProcessError("プロセスが正常に起動していません")
+        
+        try:
+            # psutilプロセスを取得
+            self._ps_process = psutil.Process(self.process.pid)
+            if not self._ps_process.is_running():
+                raise ProcessError("PowerShellプロセスの実行に失敗しました")
+                
+            self.logger.debug(f"PowerShellプロセスの起動を確認: PID {self.process.pid}")
+            
+        except psutil.NoSuchProcess:
+            raise ProcessError(f"プロセス(PID {self.process.pid})が見つかりません")
+        except psutil.AccessDenied:
+            self.logger.warning(f"プロセス(PID {self.process.pid})へのアクセスが拒否されましたが、実行は継続します")
+        except Exception as e:
+            raise ProcessError(f"プロセスの検証に失敗しました: {e}")
             
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """セッションを終了します。"""
@@ -183,26 +183,71 @@ Write-Output "SESSION_END"
         
         if self.process:
             try:
-                self.process.terminate()
-                async def wait_process():
-                    await self.process.wait()
-                    
+                # EXIT コマンドを送信してきれいに終了させる
                 try:
-                    await self._process_manager.run_in_executor(
-                        wait_process,
-                        timeout=5.0,
-                        task_id="ps_process_termination"
-                    )
-                except PowerShellTimeoutError:
-                    if self.process:
-                        self.process.kill()
-                        
-            except Exception as e:
-                self.logger.error(f"Error during PowerShell process termination: {e}")
-            finally:
-                self.process = None
-                self._ps_process = None
+                    if self.process.stdin and not self.process.stdin.is_closing():
+                        self.logger.debug("Sending EXIT command to PowerShell process")
+                        self.process.stdin.write(b"EXIT\n")
+                        await self.process.stdin.drain()
+                except Exception as e:
+                    self.logger.warning(f"Failed to send EXIT command: {e}")
                 
+                # 一定時間待機してからプロセスを終了
+                try:
+                    await asyncio.wait_for(
+                        self._process_manager.run_in_executor(
+                            self._wait_for_process_exit,
+                            timeout=self._shutdown_timeout,
+                            task_id="ps_process_termination"
+                        ),
+                        timeout=self._shutdown_timeout
+                    )
+                except asyncio.TimeoutError:
+                    self.logger.warning("Process termination timed out, forcing termination")
+                    await self._terminate_process()
+            except Exception as e:
+                self.logger.error(f"Error during process termination: {e}")
+            finally:
+                # クリーンアップ処理を実行
+                await self._cleanup_resources()
+    
+    async def _terminate_process(self) -> None:
+        """プロセスを強制終了します"""
+        if not self.process:
+            return
+            
+        try:
+            # terminateを試す
+            self.process.terminate()
+            
+            # 短い時間待つ
+            try:
+                await asyncio.wait_for(
+                    self._wait_for_process_exit(),
+                    timeout=2.0
+                )
+                return  # 成功して終了
+            except asyncio.TimeoutError:
+                self.logger.warning("Process still running after terminate, killing it")
+            
+            # killを試す
+            self.process.kill()
+            
+            # psutilでも試みる
+            if self._ps_process and self._ps_process.is_running():
+                try:
+                    self._ps_process.kill()
+                except Exception as e:
+                    self.logger.error(f"psutilでのプロセス終了に失敗: {e}")
+                    
+        except Exception as e:
+            self.logger.error(f"プロセス終了エラー: {e}")
+    
+    async def _wait_for_process_exit(self) -> None:
+        """プロセスの終了を待機します。"""
+        if self.process:
+            await self.process.wait()
+    
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
@@ -210,65 +255,87 @@ Write-Output "SESSION_END"
     )
     async def _read_queues(self, timeout: float = None) -> Tuple[List[str], List[str]]:
         """
-        出力キューとエラーキューから読み取りを行います。
-        tenacityを使用して自動リトライ機能を追加しています。
+        出力キューとエラーキューから読み取りを行う
         
         Args:
-            timeout: タイムアウト時間（秒）
+            timeout: タイムアウト時間。Noneの場合はデフォルト値を使用。
             
         Returns:
-            (出力リスト, エラーリスト)のタプル
-            
-        Raises:
-            PowerShellTimeoutError: タイムアウト時に発生
+            (標準出力のリスト, 標準エラー出力のリスト)
         """
-        if timeout is None:
-            timeout = self._read_timeout
-            
-        output_lines = []
-        error_lines = []
+        timeout = timeout or self._read_timeout
         
+        # クローズされたキューがあれば例外
+        if getattr(self, '_is_cleaning_up', False):
+            raise CommunicationError("Cannot read queues during cleanup")
+        
+        stdout_list = []
+        stderr_list = []
+        
+        # 出力キューからの読み取り
         try:
-            # 出力キューから読み取り
-            start_time = time.time()
-            while time.time() - start_time < timeout:
+            while True:
                 try:
-                    output = await asyncio.wait_for(self._output_queue.get(), timeout=0.1)
-                    if output is None:  # 終了マーカー
-                        break
-                    output_lines.append(output)
-                    # 実行結果のマーカーを検出したら即終了
-                    if "COMMAND_SUCCESS" in output or "SESSION_READY" in output:
-                        break
-                except asyncio.TimeoutError:
-                    # 何かしらの出力を受け取った後で一定時間出力がなければ終了
-                    if output_lines:
-                        break
-                    # 全体のタイムアウトをチェック
-                    if time.time() - start_time >= timeout:
-                        raise PowerShellTimeoutError(f"読み取りがタイムアウトしました (timeout={timeout}s)")
-                    continue
+                    item = await asyncio.wait_for(
+                        self._output_queue.get(),
+                        timeout=timeout
+                    )
                     
-            # エラーキューから読み取り
-            error_check_time = min(0.5, timeout / 2)  # エラーチェックは短めに
-            start_time = time.time()
-            while time.time() - start_time < error_check_time:
-                try:
-                    error = await asyncio.wait_for(self._error_queue.get(), timeout=0.1)
-                    if error is None:  # 終了マーカー
+                    if item is None:  # 終了マーカー
                         break
-                    error_lines.append(error)
+                        
+                    if isinstance(item, IPCMessage):
+                        if item.type == MessageType.ERROR:
+                            raise CommunicationError(
+                                "Error message received",
+                                direction="receive",
+                                data=item.data
+                            )
+                        stdout_list.append(item.data)
+                    else:
+                        stdout_list.append(item)
+                    
+                    # 一定量のデータを読み取ったら終了
+                    if len(stdout_list) >= 100:
+                        break
+                        
                 except asyncio.TimeoutError:
+                    # タイムアウトしたら現時点での結果を返す
                     break
-                    
-        except PowerShellTimeoutError:
-            # タイムアウトエラーはそのまま再スロー
-            raise
         except Exception as e:
-            self.logger.error(f"Error reading queues: {e}")
+            self.logger.error(f"Error reading from output queue: {e}")
+            raise CommunicationError(f"Error reading from output queue: {e}", direction="receive")
             
-        return output_lines, error_lines
-        
+        # エラーキューからの読み取り
+        try:
+            while True:
+                try:
+                    item = await asyncio.wait_for(
+                        self._error_queue.get(),
+                        timeout=timeout / 2  # エラーキューは短めのタイムアウト
+                    )
+                    
+                    if item is None:  # 終了マーカー
+                        break
+                        
+                    if isinstance(item, IPCMessage):
+                        stderr_list.append(item.data)
+                    else:
+                        stderr_list.append(item)
+                        
+                    # 一定量のデータを読み取ったら終了
+                    if len(stderr_list) >= 50:
+                        break
+                        
+                except asyncio.TimeoutError:
+                    # タイムアウトしたら現時点での結果を返す
+                    break
+        except Exception as e:
+            self.logger.error(f"Error reading from error queue: {e}")
+            # エラーキューの読み取りエラーは無視して続行
+            
+        return stdout_list, stderr_list
+    
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
@@ -276,371 +343,272 @@ Write-Output "SESSION_END"
     )
     async def _execute_raw(self, script: str) -> str:
         """
-        生のPowerShellスクリプトを実行します。
-        tenacityを使用して自動リトライ機能を追加しています。
+        スクリプトを実行し、生の出力を返します。
         
         Args:
             script: 実行するスクリプト
             
         Returns:
-            実行結果の文字列
+            コマンドの出力
         """
         if not self.process or not self.process.stdin:
-            raise ProcessError("PowerShell process is not running")
+            raise ProcessError("PowerShell process not initialized or already closed")
             
+        if self.process.stdin.is_closing():
+            raise ProcessError("PowerShell stdin is closed")
+            
+        # コマンドを送信
         try:
-            # コマンドをエスケープして標準入力に送信
-            escaped_script = script.replace("\n", " ").strip()
-            command_with_newline = f"{escaped_script}\n"
+            self.logger.debug(f"Sending command: {script}")
+            self._last_command = script
             
-            # スクリプトを送信
-            self.process.stdin.write(command_with_newline.encode("utf-8"))
+            # コマンドをエンコードして送信
+            encoded_cmd = (script + "\n").encode()
+            self.process.stdin.write(encoded_cmd)
             await self.process.stdin.drain()
             
-            # 出力を待機（短いタイムアウトを使用）
-            output_lines, error_lines = await self._read_queues(timeout=self._execution_timeout)
-            
-            if error_lines:
-                error_message = "\n".join(error_lines)
-                raise PowerShellExecutionError(error_message)
-                
-            return "\n".join(output_lines)
-            
         except Exception as e:
-            error_msg = f"Failed to execute PowerShell script: {e}"
-            self.logger.error(error_msg)
-            raise PowerShellError(error_msg)
+            self.logger.error(f"Error sending command: {e}")
+            raise CommunicationError(
+                f"コマンドの送信に失敗しました: {e}", 
+                direction="send", 
+                data=script
+            )
             
+        # 出力を読み取る
+        outputs, errors = await self._read_queues(self._execution_timeout)
+        
+        if not outputs and not errors:
+            raise CommunicationError(
+                "コマンドからの応答がありません", 
+                direction="receive", 
+                data=script
+            )
+        
+        # エラーがあれば例外をスロー
+        if errors:
+            self.logger.error(f"Command execution error: {errors}")
+            error_msg = "\n".join(errors)
+            raise PowerShellExecutionError(f"コマンド実行エラー: {error_msg}", details=script)
+            
+        # 結果を処理して返す
+        return self._process_output(outputs)
+    
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
         retry=retry_if_exception_type((ProcessError, PowerShellTimeoutError))
     )
-    async def execute(self, command: str) -> str:
+    @as_async_result
+    async def execute(self, command: str) -> Any:
         """
-        コマンドを実行して結果を返します。
-        tenacityを使用して自動リトライ機能を実装しています。
+        PowerShellコマンドを実行します。
         
         Args:
             command: 実行するコマンド
             
         Returns:
             コマンドの実行結果
-            
-        Raises:
-            PowerShellError: PowerShellでエラーが発生した場合
-            PowerShellTimeoutError: タイムアウトの場合
-            ProcessError: プロセスエラーの場合
         """
-        self.logger.debug(f"Executing command: {command}")
-        self._last_command = command  # コマンドを記録
-        
-        if not self.process or self.process.returncode is not None:
-            error_msg = "PowerShellプロセスが実行されていません"
-            self.logger.error(error_msg)
-            raise ProcessError(error_msg)
+        if not self.process:
+            raise ProcessError("PowerShell process not initialized")
             
-        if not self.process.stdin or self.process.stdin.is_closing():
-            error_msg = "PowerShellの標準入力が利用できません"
-            self.logger.error(error_msg)
-            raise ProcessError(error_msg)
+        if self._stop_event.is_set():
+            raise ProcessError("Session is shutting down")
             
         try:
-            # コマンドを実行
-            command_bytes = f"{command}\n".encode()
-            self.process.stdin.write(command_bytes)
-            await self.process.stdin.drain()
+            self.logger.debug(f"Executing command: {command}")
+            result = await self._execute_raw(command)
             
-            # タイムアウト付きで実行
-            # PowerShellはブロッキング操作なので、タイムアウトを強制的に設定
-            try:
-                async with asyncio.timeout(self.timeout):
-                    outputs, errors = await self._read_queues()
-            except asyncio.TimeoutError:
-                error_msg = f"コマンド実行がタイムアウトしました: {command} (timeout={self.timeout}s)"
-                self.logger.error(error_msg)
-                # ここで明示的にタイムアウト例外を発生させる
-                raise PowerShellTimeoutError(error_msg)
-            
-            # エラーチェック
-            if errors:
-                error_msg = "\n".join(errors)
-                self.logger.error(f"PowerShellエラー: {error_msg}")
-                # PowerShellエラーとして処理
-                raise ProcessError(f"PowerShellエラー: {error_msg}")
+            # 結果が SUCCESS または ERROR マーカーを含むか確認
+            if "COMMAND_SUCCESS" in result:
+                # 成功マーカーを削除
+                result = result.replace("COMMAND_SUCCESS", "").strip()
                 
-            # 成功の場合は結果を返す
-            result = self._process_output(outputs)
-            self.logger.debug(f"Command executed successfully: {result}")
+                # JSONの場合はパース
+                if result and (result.startswith('{') or result.startswith('[')):
+                    try:
+                        return json.loads(result)
+                    except json.JSONDecodeError:
+                        # JSONでない場合はそのまま返す
+                        pass
+                        
+                return result
+                
+            elif "COMMAND_ERROR" in result:
+                # エラーマーカーを含む場合はエラーとして処理
+                result = result.replace("COMMAND_ERROR", "").strip()
+                raise PowerShellExecutionError(f"PowerShellからエラー: {result}", details=command)
+                
+            # どちらのマーカーも含まない場合
+            self.logger.warning(f"Command result doesn't contain success/error marker: {result}")
             return result
             
         except PowerShellTimeoutError:
-            # タイムアウトエラーを再スロー
+            self.logger.error(f"Command execution timed out: {command}")
             raise
         except Exception as e:
-            if isinstance(e, (PowerShellTimeoutError, ProcessError)):
+            self.logger.error(f"Error executing command: {e}")
+            if isinstance(e, PowerShellError):
                 raise
-            error_msg = f"コマンド実行中にエラーが発生しました: {e}"
-            self.logger.error(error_msg)
-            raise ProcessError(error_msg) from e
-            
+            else:
+                raise PowerShellExecutionError(f"コマンド実行中にエラーが発生しました: {e}", details=command)
+    
     def _process_output(self, outputs: list) -> str:
         """
-        コマンド実行の出力を処理します。
+        出力を処理して単一の文字列に結合します。
         
         Args:
             outputs: 出力のリスト
             
         Returns:
-            処理された出力
+            処理済みの出力文字列
         """
         if not outputs:
             return ""
             
-        # コマンド自体と"COMMAND_SUCCESS"を除外する
-        filtered_outputs = []
-        for output in outputs:
-            # コマンドプロンプトの行をスキップ
-            if output.startswith("PS ") and ">" in output:
-                continue
+        # リスト内の各要素を文字列に変換して結合
+        result = []
+        for item in outputs:
+            if isinstance(item, IPCMessage):
+                result.append(str(item.data))
+            else:
+                result.append(str(item))
                 
-            # コマンド自体をスキップ
-            if output.strip() == self._last_command.strip():
-                continue
-                
-            # 成功マーカーをスキップ
-            if output == "COMMAND_SUCCESS":
-                continue
-                
-            filtered_outputs.append(output)
-            
-        # 文字列を結合（結果が1つの場合はそのまま返す）
-        if len(filtered_outputs) == 1:
-            # 引用符で囲まれている場合は引用符を削除
-            result = filtered_outputs[0]
-            if result.startswith('"') and result.endswith('"'):
-                result = result[1:-1]
-            return result
-            
-        return "\n".join(filtered_outputs)
-
+        return "\n".join(result)
+    
     async def _cleanup_resources(self):
-        """リソースをクリーンアップします。"""
-        self.logger.debug("Cleaning up PowerShell session resources")
-        
-        # 停止イベントを設定
+        """関連リソースのクリーンアップ処理を実行します。"""
+        # 読み込みイベントを停止
         self._stop_event.set()
         
+        # 標準入出力ストリームをクローズ
         if self.process:
             try:
-                # まずEXITコマンドを送信してPowerShellを正常終了させる
                 if self.process.stdin and not self.process.stdin.is_closing():
-                    try:
-                        self.process.stdin.write(b"EXIT\n")
-                        await asyncio.wait_for(self.process.stdin.drain(), timeout=2.0)
-                    except (ConnectionError, BrokenPipeError, asyncio.TimeoutError):
-                        self.logger.warning("Failed to send EXIT command")
+                    self.process.stdin.close()
                     
-                # プロセスを終了
-                if self.process.returncode is None:  # プロセスがまだ実行中の場合
-                    self.process.terminate()
-                    
-                    # プロセスの終了を待機
-                    try:
-                        await asyncio.wait_for(self.process.wait(), timeout=5.0)
-                    except asyncio.TimeoutError:
-                        self.logger.warning("Process termination timed out, forcing kill")
-                        self.process.kill()
-                        try:
-                            await asyncio.wait_for(self.process.wait(), timeout=2.0)
-                        except asyncio.TimeoutError:
-                            self.logger.error("Failed to kill process after timeout")
-                    
+                # stdout/stderrは読み取り専用なので明示的にclose不要
             except Exception as e:
-                self.logger.error(f"Error during process cleanup: {e}")
-            finally:
-                self.process = None
+                self.logger.error(f"標準入出力のクローズに失敗: {e}")
                 
-        # psutilプロセスのクリーンアップ
-        if self._ps_process:
+        # プロセスの強制終了 (まだ実行中の場合)
+        try:
+            if self.process:
+                # プロセスのステータスを取得
+                if hasattr(self.process, "returncode") and self.process.returncode is None:
+                    # まだ終了していない
+                    self.process.kill()
+                    
+            # psutilプロセスも確認
+            if self._ps_process and self._ps_process.is_running():
+                try:
+                    self._ps_process.kill()
+                except psutil.NoSuchProcess:
+                    pass  # すでに終了している
+                except Exception as e:
+                    self.logger.error(f"psutilプロセスの終了に失敗: {e}")
+        except Exception as e:
+            self.logger.error(f"プロセスのクリーンアップに失敗: {e}")
+            
+        # キューをクリア
+        while not self._output_queue.empty():
             try:
-                if self._ps_process.is_running():
-                    try:
-                        self._ps_process.terminate()
-                        try:
-                            self._ps_process.wait(timeout=5.0)
-                        except psutil.TimeoutExpired:
-                            self._ps_process.kill()
-                            try:
-                                self._ps_process.wait(timeout=2.0)
-                            except psutil.TimeoutExpired:
-                                self.logger.error("Failed to kill psutil process")
-                    except psutil.NoSuchProcess:
-                        pass
-            except Exception as e:
-                self.logger.error(f"Error during psutil process cleanup: {e}")
-            finally:
-                self._ps_process = None
+                self._output_queue.get_nowait()
+            except:
+                pass
                 
-        # キューのクリーンアップ
-        try:
-            # 読み込みが停止するのを少し待つ
-            await asyncio.sleep(0.5)
-            
-            while not self._output_queue.empty():
-                await self._output_queue.get()
-            while not self._error_queue.empty():
-                await self._error_queue.get()
-        except Exception as e:
-            self.logger.error(f"Error during queue cleanup: {e}")
-            
-        # プロセスマネージャのクリーンアップ
-        try:
-            await self._process_manager.cleanup()
-        except Exception as e:
-            self.logger.error(f"Error during process manager cleanup: {e}")
-            
-        self.logger.debug("PowerShell session resources cleaned up")
-
+        while not self._error_queue.empty():
+            try:
+                self._error_queue.get_nowait()
+            except:
+                pass
+                
+        # プロセスマネージャーのクリーンアップ
+        await self._process_manager.cleanup()
+        
+        self.logger.debug("リソースのクリーンアップ完了")
+    
     async def _wait_for_ready(self) -> None:
-        """PowerShellセッションの初期化完了を待機します。"""
-        # 最大10秒間待機（タイムアウト値を長くする）
-        max_wait_time = 10.0
+        """PowerShellセッションが準備完了状態になるまで待機します。"""
+        self.logger.debug("Waiting for PowerShell session to be ready")
+        
+        ready = False
         start_time = time.time()
         
-        while time.time() - start_time < max_wait_time:
+        while not ready and time.time() - start_time < self._startup_timeout:
+            # キャンセルされた場合は中断
+            if self._stop_event.is_set():
+                raise ProcessError("Session initialization cancelled")
+                
             try:
-                # SESSION_READYが出力されるまで待機
-                output_lines, error_lines = await self._read_queues(timeout=1.0)  # タイムアウトを長く
+                # 出力を読み取る
+                outputs, errors = await self._read_queues(timeout=1.0)
                 
-                # SESSION_READYが検出されたら成功
-                if any("SESSION_READY" in line for line in output_lines):
-                    return
+                # エラーがあれば例外をスロー
+                if errors:
+                    error_msg = "\n".join(errors)
+                    raise ProcessError(f"Error during session initialization: {error_msg}")
                     
-                # エラーが検出された場合は例外をスロー
-                if error_lines:
-                    self.logger.error(f"PowerShell initialization error: {error_lines}")
-                    raise PowerShellError("\n".join(error_lines))
+                # 準備完了マーカーを確認
+                for output in outputs:
+                    if "SESSION_READY" in str(output):
+                        ready = True
+                        break
+                        
+                # まだ準備ができていなければ少し待機
+                if not ready:
+                    await asyncio.sleep(0.1)
                     
-                # 少し待機してから再試行
-                await asyncio.sleep(0.2)
-                
-            except PowerShellTimeoutError:
-                # タイムアウトした場合は継続して待機
-                self.logger.debug("Waiting for PowerShell session initialization...")
-                await asyncio.sleep(0.5)
+            except asyncio.TimeoutError:
+                # タイムアウトしたら再試行
                 continue
+            except Exception as e:
+                self.logger.error(f"Error waiting for session ready: {e}")
+                raise ProcessError(f"Session initialization error: {e}")
                 
-        # タイムアウト後も SESSION_READY が見つからない場合
-        raise PowerShellTimeoutError("PowerShell session initialization timed out")
-
+        if not ready:
+            raise PowerShellTimeoutError("Session initialization timed out")
+            
+        self.logger.debug("PowerShell session is ready")
+    
     @retry(
-        stop=stop_after_attempt(2),  # リトライ回数を減らす
-        wait=wait_exponential(multiplier=0.5, min=0.5, max=2),  # 待機時間を短縮
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=0.5, min=0.5, max=2),
         retry=retry_if_exception_type((ProcessError, PowerShellTimeoutError))
     )
     async def restart(self):
-        """
-        PowerShellセッションを再起動します。
-        tenacityを使用して自動リトライ機能を実装しています。
-        """
-        self.logger.info("Restarting PowerShell session...")
+        """PowerShellセッションを再起動します。"""
+        self.logger.info("PowerShellセッションを再起動しています")
         
-        # 既存のリソースをクリーンアップ
+        # 既存のセッションをクリーンアップ
         await self._cleanup_resources()
         
-        # 状態をリセット
+        # プロセス状態をリセット
+        self.process = None
+        self._ps_process = None
         self._stop_event.clear()
-        self._is_cleaning_up = False
-        self._output_queue = asyncio.Queue()
-        self._error_queue = asyncio.Queue()
         
-        # 新しいプロセスを起動
         try:
-            # イベントループを取得
-            self._loop = asyncio.get_event_loop()
-            
-            # PowerShellプロセスを起動
-            startupinfo = None
-            if sys.platform == "win32":
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            
-            # 簡易版のプロセス作成（フルバージョンよりも高速）
-            powershell_path = "powershell.exe"
-            if os.path.exists("C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"):
-                powershell_path = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
-            
-            # 環境変数を簡易化（必要なものだけ）
-            env = os.environ.copy()
-            env.update({
-                "POWERSHELL_TELEMETRY_OPTOUT": "1",
-                "PSModulePath": "",
-                "POWERSHELL_UPDATECHECK": "Off"
-            })
-            
-            # 初期化コマンド（シンプル版）
-            init_command = """
-$ErrorActionPreference = 'Stop'
-$ProgressPreference = 'SilentlyContinue'
-Write-Output "SESSION_READY"
-While ($true) {
-    $command = Read-Host
-    if ($command -eq "EXIT") { break }
-    try {
-        $result = Invoke-Expression -Command $command -ErrorAction Stop
-        if ($null -ne $result) { 
-            Write-Output $result.ToString() 
-        }
-        Write-Output "COMMAND_SUCCESS"
-    } catch {
-        Write-Error "ERROR: $_"
-        Write-Output "COMMAND_ERROR"
-    }
-}
-"""
-            # プロセスを作成（短いタイムアウトで）
-            self.process = await asyncio.wait_for(
-                asyncio.create_subprocess_exec(
-                    powershell_path,
-                    "-NoLogo",
-                    "-NoProfile",
-                    "-ExecutionPolicy", "Bypass",
-                    "-NoExit",
-                    "-Command", init_command,
-                    stdin=asyncio.subprocess.PIPE,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    startupinfo=startupinfo,
-                    env=env
-                ),
-                timeout=5.0  # 短いタイムアウト
+            # 新しいプロセスを開始
+            await asyncio.wait_for(
+                self._start_powershell_process(),
+                timeout=self._startup_timeout
             )
             
-            self.logger.info(f"PowerShell process restarted with PID {self.process.pid}")
-            
-            # psutilプロセスを取得
-            if self.process and self.process.pid:
-                self._ps_process = psutil.Process(self.process.pid)
-                if not self._ps_process.is_running():
-                    raise ProcessError("PowerShell process failed to start")
-            
-            # 出力とエラーの読み取りタスクを開始
+            # 読み取りタスクを再開
             self._start_io_tasks()
             
-            # 初期化完了を待機（短いタイムアウト）
-            try:
-                await asyncio.wait_for(
-                    self._wait_for_ready(),
-                    timeout=3.0  # さらに短いタイムアウト
-                )
-                self.logger.info("PowerShell session restarted successfully")
-            except asyncio.TimeoutError:
-                raise PowerShellTimeoutError("PowerShell session restart timed out")
-            except Exception as e:
-                raise ProcessError(f"Failed to restart PowerShell session: {e}")
-                
+            # 初期化完了を待機
+            await asyncio.wait_for(
+                self._wait_for_ready(),
+                timeout=self._startup_timeout
+            )
+            
+            self.logger.info("PowerShellセッションの再起動が完了しました")
+        except asyncio.TimeoutError:
+            self.logger.error("PowerShellセッションの再起動がタイムアウトしました")
+            raise PowerShellTimeoutError("PowerShellセッションの再起動がタイムアウトしました")
         except Exception as e:
-            error_msg = f"Failed to restart PowerShell session: {e}"
-            self.logger.error(error_msg)
-            raise ProcessError(error_msg) 
+            self.logger.error(f"PowerShellセッションの再起動に失敗しました: {e}")
+            raise PowerShellError.from_exception(e, "PowerShellセッションの再起動に失敗しました") 
