@@ -15,7 +15,7 @@ import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from powershell_controller.core.session import PowerShellSession
 from powershell_controller.utils.config import PowerShellControllerSettings, RetryConfig, TimeoutConfig
-from powershell_controller.simple import CommandResult
+from powershell_controller.simple import CommandResult, SimplePowerShellController
 from loguru import logger
 
 # テスト環境のプラットフォームを識別
@@ -304,17 +304,18 @@ def use_mock_sessions(monkeypatch):
             # その他のコマンドはただ成功
             return "Command executed successfully"
     
+    # run_commandメソッドをパッチ
     async def mock_run_command(self, command: str) -> CommandResult:
         """SimplePowerShellControllerのrun_commandメソッドをモック化"""
         if "Write-Output" in command:
             # 出力コマンドの場合、引用符内のテキストを抽出
             match = re.search(r"Write-Output\s+'([^']*)'", command)
             if match:
-                return CommandResult(output=match.group(1), success=True)
+                return CommandResult(output=match.group(1), success=True, error=None)
             match = re.search(r"Write-Output\s+\"([^\"]*)\"", command)
             if match:
-                return CommandResult(output=match.group(1), success=True)
-            return CommandResult(output="Output", success=True)
+                return CommandResult(output=match.group(1), success=True, error=None)
+            return CommandResult(output="Output", success=True, error=None)
         elif "Get-NonExistentCommand" in command or "Get-NonExistentCmdlet" in command:
             # 存在しないコマンドの場合はエラー
             return CommandResult(
@@ -333,7 +334,7 @@ def use_mock_sessions(monkeypatch):
                     details={"error_type": "timeout_error", "command": command}
                 )
             # 短いスリープは普通に成功
-            return CommandResult(output="Sleep completed", success=True)
+            return CommandResult(output="Sleep completed", success=True, error=None)
         elif "Test-ConnectionFailed" in command:
             # 通信エラーのシミュレーション
             return CommandResult(
@@ -352,10 +353,10 @@ def use_mock_sessions(monkeypatch):
             )
         elif "Get-Date" in command:
             # 日付コマンド
-            return CommandResult(output="2025-05-07 12:00:00", success=True)
+            return CommandResult(output="2025-05-07 12:00:00", success=True, error=None)
         else:
             # その他のコマンドはただ成功
-            return CommandResult(output="Command executed successfully", success=True)
+            return CommandResult(output="Command executed successfully", success=True, error=None)
 
     async def mock_close(self) -> None:
         # 何もしない
@@ -366,7 +367,6 @@ def use_mock_sessions(monkeypatch):
     monkeypatch.setattr(PowerShellSession, "cleanup", AsyncMock())
     
     # SimplePowerShellControllerもモック化
-    from powershell_controller.simple import SimplePowerShellController
     monkeypatch.setattr(SimplePowerShellController, "run_command", mock_run_command)
     monkeypatch.setattr(SimplePowerShellController, "close", mock_close)
     
@@ -412,6 +412,17 @@ def use_mock_sessions(monkeypatch):
                 results.append("Command executed successfully")
         return Ok(results)
     
+    # run_commandsもモック化
+    async def mock_run_commands(self, commands: list):
+        results = []
+        for cmd in commands:
+            result = await mock_run_command(self, cmd)
+            results.append(result)
+            if not result.success:
+                break
+        return results
+    
     monkeypatch.setattr(SimplePowerShellController, "execute_command_result", mock_execute_command_result)
     monkeypatch.setattr(SimplePowerShellController, "execute_commands_in_session_result", mock_execute_commands_in_session_result)
-    monkeypatch.setattr(SimplePowerShellController, "execute_script_result", mock_execute_command_result) 
+    monkeypatch.setattr(SimplePowerShellController, "execute_script_result", mock_execute_command_result)
+    monkeypatch.setattr(SimplePowerShellController, "run_commands", mock_run_commands) 
