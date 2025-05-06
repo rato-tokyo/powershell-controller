@@ -1,7 +1,7 @@
 """
 シンプルなPowerShellコントローラーの実装
 """
-from typing import Any, List, Optional, Union, Dict
+from typing import Any, List, Optional, Union, Dict, Callable, Awaitable, TypeVar, cast
 import asyncio
 from loguru import logger
 from result import Result, Ok, Err
@@ -9,6 +9,8 @@ from result import Result, Ok, Err
 from .core.session import PowerShellSession
 from .core.errors import PowerShellError, PowerShellExecutionError
 from .utils.result_helper import ResultHandler
+
+T = TypeVar('T')
 
 class SimplePowerShellController:
     """
@@ -31,7 +33,7 @@ class SimplePowerShellController:
         ```
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """コントローラーを初期化します。"""
         self.logger = logger.bind(module="simple_controller")
         
@@ -82,14 +84,22 @@ class SimplePowerShellController:
         session = PowerShellSession()
         
         try:
-            result = session.execute_sync(command)
+            # 非同期メソッドを同期的に実行するためのヘルパー関数
+            async def _execute_async() -> Any:
+                async with session:
+                    return await session.execute(command)
+                    
+            # 実行してループが終了するまで待機
+            loop = asyncio.get_event_loop()
+            result = loop.run_until_complete(_execute_async())
             return result
         except Exception as e:
             self.logger.error(f"コマンド '{command}' の実行中にエラーが発生しました: {e}")
             raise PowerShellExecutionError(f"コマンド実行エラー: {e}")
         finally:
             # セッションのクリーンアップ
-            asyncio.get_event_loop().run_until_complete(session.cleanup())
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(session.cleanup())
             
     def execute_commands_in_session(self, commands: List[str]) -> List[Any]:
         """
@@ -104,8 +114,8 @@ class SimplePowerShellController:
         Raises:
             PowerShellExecutionError: コマンド実行時にエラーが発生した場合
         """
-        async def _run_commands():
-            results = []
+        async def _run_commands() -> List[Any]:
+            results: List[Any] = []
             session = PowerShellSession()
             
             try:
@@ -160,7 +170,8 @@ class SimplePowerShellController:
         & $tempScriptBlock
         """
         
-        return self.execute_command(temp_script)
+        result = self.execute_command(temp_script)
+        return cast(str, result)
         
     def execute_script_result(self, script: str) -> Result[str, PowerShellError]:
         """

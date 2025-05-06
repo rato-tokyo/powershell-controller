@@ -3,9 +3,9 @@ PowerShellコントローラーの設定クラス
 """
 import os
 import sys
-from typing import Dict, Optional, List, Union
-from pydantic import BaseModel, Field
-from pydantic_settings import BaseSettings
+from typing import Dict, Optional, List, Union, Any
+from pydantic import BaseModel, Field, ConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
 # .envファイルを読み込む
@@ -25,26 +25,26 @@ class PowerShellControllerSettings(BaseSettings):
     ps_path: str = Field(
         default="",
         description="PowerShellの実行パス",
-        env="PS_CTRL_PS_PATH"
+        json_schema_extra={"env": "PS_CTRL_PS_PATH"}
     )
     
     # ログ設定
     log_level: str = Field(
         default="INFO",
         description="ログレベル",
-        env="PS_CTRL_LOG_LEVEL"
+        json_schema_extra={"env": "PS_CTRL_LOG_LEVEL"}
     )
     log_file: Optional[str] = Field(
         default=None,
         description="ログファイルパス",
-        env="PS_CTRL_LOG_FILE"
+        json_schema_extra={"env": "PS_CTRL_LOG_FILE"}
     )
     
     # タイムアウト設定
     timeout: float = Field(
         default=30.0,
         description="デフォルトのタイムアウト時間（秒）",
-        env="PS_CTRL_TIMEOUT"
+        json_schema_extra={"env": "PS_CTRL_TIMEOUT"}
     )
     
     # リトライ設定
@@ -65,12 +65,12 @@ class PowerShellControllerSettings(BaseSettings):
         description="PowerShellに渡す追加の引数"
     )
     
-    class Config:
-        """設定メタデータ"""
-        env_prefix = "PS_CTRL_"
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_prefix="PS_CTRL_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False
+    )
     
     def get_ps_path(self) -> str:
         """
@@ -110,7 +110,7 @@ class PowerShellControllerSettings(BaseSettings):
             # Linux/macOSの場合はpwshを使用
             return "pwsh"
     
-    def update(self, **kwargs) -> 'PowerShellControllerSettings':
+    def update(self, **kwargs: Any) -> 'PowerShellControllerSettings':
         """
         設定を更新します。
         
@@ -126,7 +126,7 @@ class PowerShellControllerSettings(BaseSettings):
                 setattr(new_settings, key, value)
         return new_settings
     
-    def with_env_vars(self, **env_vars) -> 'PowerShellControllerSettings':
+    def with_env_vars(self, **env_vars: str) -> 'PowerShellControllerSettings':
         """
         環境変数を追加した新しい設定を作成します。
         

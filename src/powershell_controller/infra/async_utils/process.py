@@ -56,7 +56,7 @@ class AsyncProcessManager:
         """
         task_id = task_id or f"task_{id(func)}"
         
-        async def wrapped_func():
+        async def wrapped_func() -> T:
             try:
                 self.logger.debug(f"Starting task {task_id}")
                 return await func(**kwargs)
@@ -86,7 +86,7 @@ class AsyncProcessManager:
             if task_id in self._tasks:
                 del self._tasks[task_id]
     
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         """
         実行中のすべてのタスクをキャンセルします。
         """

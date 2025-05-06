@@ -1,12 +1,13 @@
 """
 Result型を使用したヘルパー関数
 """
-from typing import Any, Callable, TypeVar, Generic, Optional, Dict, List, Union
+from typing import Any, Callable, TypeVar, Generic, Optional, Dict, List, Union, Tuple, cast, overload
 from result import Result, Ok, Err
 from ..core.errors import PowerShellError, PowerShellExecutionError, PowerShellTimeoutError
 
 T = TypeVar('T')
 E = TypeVar('E', bound=Exception)
+F = TypeVar('F')  # 関数の戻り値型用の型変数
 
 class ResultHandler(Generic[T, E]):
     """
@@ -26,7 +27,7 @@ class ResultHandler(Generic[T, E]):
     """
     
     @staticmethod
-    def from_function(func: Callable[..., T], *args, **kwargs) -> Result[T, PowerShellError]:
+    def from_function(func: Callable[..., F], *args: Any, **kwargs: Any) -> Result[F, PowerShellError]:
         """
         関数をResult型でラップする
         
@@ -88,10 +89,10 @@ class ResultHandler(Generic[T, E]):
         Returns:
             結合したResult型
         """
-        values = []
+        values: List[T] = []
         for result in results:
             if result.is_err():
-                return result
+                return cast(Result[List[T], E], result)
             values.append(result.unwrap())
         return Ok(values)
     

@@ -12,9 +12,8 @@ from ..core.errors import PowerShellTimeoutError, ProcessError
 class AsyncProcessManager:
     """非同期プロセス管理クラス"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """AsyncProcessManagerを初期化します。"""
-        self.logger = logging.getLogger(__name__)
         self.logger = logger.bind(module="legacy_process_manager")
         self._executor = ThreadPoolExecutor(max_workers=4)
         

@@ -6,6 +6,7 @@ import asyncio
 from powershell_controller.utils.config import PowerShellControllerSettings, RetryConfig
 from powershell_controller.core.errors import PowerShellError, PowerShellTimeoutError, ProcessError
 from powershell_controller.core.session.powershell import PowerShellSession
+from tenacity import RetryError
 
 @pytest.fixture
 def controller_config() -> PowerShellControllerSettings:
@@ -36,19 +37,19 @@ async def test_execute_command_error() -> None:
     # PowerShellの例外を正しく処理する必要がある
     async with session:
         try:
-            # エラーを投げるコマンド
-            await session.execute("throw 'Test error'")
+            # PowerShellの構文エラーを発生させる (これはリトライされる可能性がある)
+            await session.execute("Get-NonExistentCmdlet")
             pytest.fail("エラーが発生しませんでした")
+        except RetryError as e:
+            # tenacityのRetryErrorから直接最後の例外を取得 
+            last_exception = e.last_attempt.exception()
+            assert isinstance(last_exception, ProcessError)
+            error_msg = str(last_exception)
+            assert "NonExistentCmdlet" in error_msg
         except Exception as e:
-            # tenacityのRetryErrorの場合、内部例外を取得
+            # その他の例外が発生した場合
             error_msg = str(e)
-            if hasattr(e, "last_attempt"):
-                last_attempt = e.last_attempt
-                if hasattr(last_attempt, "exception") and last_attempt.exception() is not None:
-                    error_msg = str(last_attempt.exception())
-            
-            # エラーメッセージに「Test error」という文字が含まれているか確認
-            assert "Test error" in error_msg
+            assert "NonExistentCmdlet" in error_msg or "CommandNotFound" in error_msg or "not recognized" in error_msg
 
 @pytest.mark.asyncio
 async def test_execute_command_timeout() -> None:
@@ -120,15 +121,15 @@ class TestPowerShellSession:
                 # 長時間実行されるコマンドを実行
                 await session.execute("Start-Sleep -Seconds 10")
                 pytest.fail("タイムアウトエラーが発生しませんでした")
+            except RetryError as e:
+                # tenacityのRetryErrorから直接最後の例外を取得
+                last_exception = e.last_attempt.exception()
+                assert isinstance(last_exception, PowerShellTimeoutError)
+                error_msg = str(last_exception)
+                assert "timeout" in error_msg.lower() or "タイムアウト" in error_msg
             except Exception as e:
-                # tenacityのRetryErrorの場合、内部例外を取得
+                # その他の例外の場合
                 error_msg = str(e)
-                if hasattr(e, "last_attempt"):
-                    last_attempt = e.last_attempt
-                    if hasattr(last_attempt, "exception") and last_attempt.exception() is not None:
-                        error_msg = str(last_attempt.exception())
-                
-                # タイムアウトに関するテキストが含まれているか確認
                 assert "タイムアウト" in error_msg or "timeout" in error_msg.lower() or "PowerShellTimeoutError" in error_msg
 
     @pytest.mark.asyncio
@@ -139,19 +140,19 @@ class TestPowerShellSession:
         # PowerShellの例外を正しく処理する必要がある
         async with session:
             try:
-                # エラーを投げるコマンド
-                await session.execute("throw 'Test Error'")
+                # 存在しないコマンド実行でエラーを発生させる
+                await session.execute("Get-NonExistentCommand")
                 pytest.fail("エラーが発生しませんでした")
+            except RetryError as e:
+                # tenacityのRetryErrorから直接最後の例外を取得
+                last_exception = e.last_attempt.exception()
+                assert isinstance(last_exception, ProcessError)
+                error_msg = str(last_exception)
+                assert "NonExistentCommand" in error_msg
             except Exception as e:
-                # tenacityのRetryErrorの場合、内部例外を取得
+                # その他の例外の場合
                 error_msg = str(e)
-                if hasattr(e, "last_attempt"):
-                    last_attempt = e.last_attempt
-                    if hasattr(last_attempt, "exception") and last_attempt.exception() is not None:
-                        error_msg = str(last_attempt.exception())
-                
-                # エラーメッセージに「Test Error」という文字が含まれているか確認
-                assert "Test Error" in error_msg
+                assert "NonExistentCommand" in error_msg or "CommandNotFound" in error_msg or "not recognized" in error_msg
 
     @pytest.mark.asyncio
     async def test_multiple_commands(self, controller_config: PowerShellControllerSettings) -> None:

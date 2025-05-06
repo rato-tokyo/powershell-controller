@@ -36,11 +36,13 @@ class IPCMessage:
         
     def to_dict(self) -> Dict[str, Any]:
         """メッセージを辞書形式に変換します。"""
-        return {
+        result: Dict[str, Any] = {
             "type": self.type.value,
             "content": self.content,
-            "id": self.id
         }
+        if self.id is not None:
+            result["id"] = self.id
+        return result
         
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'IPCMessage':
@@ -56,6 +58,9 @@ class IPCMessage:
         Raises:
             ValueError: 無効なメッセージデータの場合
         """
+        if "type" not in data or "content" not in data:
+            raise ValueError("Invalid message data: missing required fields")
+            
         try:
             return cls(
                 type=MessageType(data["type"]),
@@ -89,16 +94,16 @@ class IPCProtocol:
     @staticmethod
     def create_error_message(error: Exception, id: Optional[str] = None) -> IPCMessage:
         """エラーメッセージを作成します。"""
-        error_data = {
+        error_data: Dict[str, Any] = {
             "type": type(error).__name__,
             "message": str(error)
         }
         
         if isinstance(error, CommunicationError):
-            error_data.update({
-                "direction": error.direction,
-                "data": error.data
-            })
+            if hasattr(error, "direction"):
+                error_data["direction"] = error.direction
+            if hasattr(error, "data"):
+                error_data["data"] = error.data
             
         return IPCMessage(
             type=MessageType.ERROR,
