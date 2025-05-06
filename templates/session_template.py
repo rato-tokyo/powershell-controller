@@ -6,10 +6,10 @@ PowerShellセッション管理のテンプレート
 """
 from typing import Optional, Any, Dict
 import asyncio
-from ..infra.core.utils.process_manager import AsyncProcessManager
-from ..infra.core.utils.test_helper import AsyncTestHelper
-from ..infra.core.utils.ipc import IPCProtocol, MessageType
-from ..infra.core.utils.errors import ProcessError, CommunicationError
+from ..infra.utils.process_manager import AsyncProcessManager
+from ..infra.utils.test_helper import AsyncTestHelper
+from ..infra.utils.ipc import IPCProtocol, MessageType
+from ..infra.utils.errors import ProcessError, CommunicationError
 
 class BaseSessionTemplate:
     """PowerShellセッション管理の基本テンプレート"""

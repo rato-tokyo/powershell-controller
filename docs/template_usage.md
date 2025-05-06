@@ -8,12 +8,11 @@
 
 ```
 infra/
-  core/
-    utils/
-      process_manager.py  - 非同期プロセス管理
-      test_helper.py      - テスト用ヘルパー
-      ipc.py             - プロセス間通信
-      errors.py          - エラー定義
+  utils/
+    process_manager.py  - 非同期プロセス管理
+    test_helper.py      - テスト用ヘルパー
+    ipc.py             - プロセス間通信
+    errors.py          - エラー定義
 templates/
   session_template.py    - セッション管理テンプレート
 ```
@@ -40,9 +39,9 @@ templates/
 
 2. インフラ層の活用
    ```python
-   from infra.core.utils.process_manager import AsyncProcessManager
-   from infra.core.utils.test_helper import AsyncTestHelper
-   from infra.core.utils.ipc import IPCProtocol
+   from infra.utils.process_manager import AsyncProcessManager
+   from infra.utils.test_helper import AsyncTestHelper
+   from infra.utils.ipc import IPCProtocol
    
    # プロセス管理の使用例
    process_manager = AsyncProcessManager()
