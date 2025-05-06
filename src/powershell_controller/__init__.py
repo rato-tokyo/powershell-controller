@@ -23,7 +23,9 @@ from .core.errors import (
     as_result,
     as_async_result
 )
-from .simple import SimplePowerShellController, CommandResult
+from .controller import SimplePowerShellController
+from .command_executor import CommandResult
+from .error_handler import ErrorHandler
 
 # バージョン情報
 __version__ = "0.1.0"
@@ -69,6 +71,7 @@ __all__ = [
     "SessionError",
     # ヘルパー
     "ResultHandler",
+    "ErrorHandler",
     "as_result",
     "as_async_result",
     # コントローラー
