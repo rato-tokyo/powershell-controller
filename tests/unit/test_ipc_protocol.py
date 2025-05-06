@@ -2,12 +2,12 @@
 IPCプロトコルのテストケース
 """
 import pytest
-from powershell_controller.infra.ipc.protocol import (
+from py_pshell.infra.ipc.protocol import (
     IPCMessage,
     IPCProtocol,
     MessageType
 )
-from powershell_controller.core.errors import CommunicationError
+from py_pshell.core.errors import CommunicationError
 
 def test_message_creation():
     """メッセージ作成のテスト"""

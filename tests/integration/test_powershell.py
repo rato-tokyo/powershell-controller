@@ -10,11 +10,11 @@ import psutil
 import tempfile
 from pathlib import Path
 from loguru import logger
-from powershell_controller import PowerShellControllerSettings
-from powershell_controller.core.errors import PowerShellTimeoutError, PowerShellExecutionError, ProcessError, CommunicationError
-from powershell_controller.utils.config import RetryConfig, TimeoutConfig
-from powershell_controller.core.session import PowerShellSession
-from powershell_controller.simple import SimplePowerShellController, CommandResult
+from py_pshell import PowerShellControllerSettings
+from py_pshell.core.errors import PowerShellTimeoutError, PowerShellExecutionError, ProcessError, CommunicationError
+from py_pshell.utils.config import RetryConfig, TimeoutConfig
+from py_pshell.core.session import PowerShellSession
+from py_pshell.simple import SimplePowerShellController, CommandResult
 from tenacity import RetryError
 
 # テスト環境の情報

@@ -15,9 +15,9 @@ from pydantic import BaseModel
 from loguru import logger
 from result import Result, Ok, Err
 
-from powershell_controller.core.session import PowerShellSession
-from powershell_controller.utils.config import PowerShellControllerSettings
-from powershell_controller.core.errors import (
+from py_pshell.core.session import PowerShellSession
+from py_pshell.utils.config import PowerShellControllerSettings
+from py_pshell.core.errors import (
     PowerShellError, 
     PowerShellExecutionError,
     PowerShellTimeoutError,
@@ -25,8 +25,8 @@ from powershell_controller.core.errors import (
     ProcessError,
     as_result
 )
-from powershell_controller.session_manager import SessionManager
-from powershell_controller.command_executor import CommandExecutor
+from py_pshell.session_manager import SessionManager
+from py_pshell.command_executor import CommandExecutor
 
 
 class CommandResult(BaseModel):

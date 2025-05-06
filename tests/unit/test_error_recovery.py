@@ -11,7 +11,7 @@ from result import Result, Ok, Err
 from loguru import logger
 import warnings
 
-from powershell_controller import (
+from py_pshell import (
     SimplePowerShellController, 
     CommandResult,
     PowerShellError, 
@@ -20,8 +20,8 @@ from powershell_controller import (
     PowerShellTimeoutError,
     PowerShellControllerSettings
 )
-from powershell_controller.utils.config import TimeoutConfig, RetryConfig
-from powershell_controller.core.session import PowerShellSession
+from py_pshell.utils.config import TimeoutConfig, RetryConfig
+from py_pshell.core.session import PowerShellSession
 from pydantic import ValidationError
 
 # テスト環境の情報
@@ -230,7 +230,7 @@ async def test_command_result_validation(use_mock_sessions):
     # 成功なのにエラーメッセージがあるケース (警告が出るはず)
     # 直接警告をキャプチャする代わりに、loggerの警告出力を確認
     logger_mock = MagicMock()
-    with patch('powershell_controller.simple.logger', logger_mock):
+    with patch('py_pshell.simple.logger', logger_mock):
         result_inconsistent = CommandResult(
             output="Test output",
             error="Warning message",

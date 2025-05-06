@@ -1,10 +1,10 @@
-# PowerShell Controller
+# PyPShell (py-pshell)
 
-PowerShell 7のセッション管理とコマンド実行を行うPythonライブラリです。MCPのための高度な制御機能を提供します。
+PowerShell 7のセッション管理とコマンド実行を行うPythonライブラリです。非同期処理と高機能なエラーハンドリングを備えています。
 
 ## 特徴
 
-- PowerShell 7のコマンド実行と制御
+- PowerShell 7のコマンド実行と制御（同期・非同期両対応）
 - セッション管理とディレクトリナビゲーション
 - 堅牢なエラーハンドリングとリトライ機能
 - Result型を利用した安全なエラーハンドリング
@@ -13,11 +13,39 @@ PowerShell 7のセッション管理とコマンド実行を行うPythonライ�
 - JSON形式のデータ処理
 - 型安全性（mypy対応）
 
+## 最近の変更点
+
+- **パッケージ名変更**: `powershell_controller`から`py-pshell`に変更
+- **コードベースの統合**: `controller.py`の機能を`simple.py`に統合し、インターフェースを簡素化
+- **警告処理の改善**: 非同期処理での警告を削減し、より安定した実行を実現
+- **テスト機能の強化**: モックを活用した単体テストの拡充
+
+## プロジェクト構造
+
+```
+src/py_pshell/
+├── __init__.py              # パッケージエクスポート
+├── simple.py                # メイン機能（SimplePowerShellController）
+├── command_executor.py      # コマンド実行機能
+├── session_manager.py       # セッション管理機能
+├── error_handler.py         # エラー処理機能
+├── core/                    # コア機能
+│   ├── errors/              # エラー定義
+│   └── session/             # セッション実装
+├── infra/                   # インフラ層
+│   ├── async_utils/         # 非同期ユーティリティ
+│   ├── ipc/                 # プロセス間通信
+│   └── process.py           # プロセス管理
+└── utils/                   # ユーティリティ
+    ├── config.py            # 設定管理
+    └── result_helper.py     # Result型ヘルパー
+```
+
 ## 要件
 
 - Python 3.8以上
 - PowerShell 7.x
-- Windows環境
+- Windows環境（Linux/macOSも基本的に動作）
 
 ## インストール
 
@@ -32,12 +60,12 @@ pip install -e ".[dev]"
 ## 基本的な使用例
 
 ```python
-from powershell_controller.simple import SimplePowerShellController
+from py_pshell import SimplePowerShellController
 
 # コントローラーの初期化
 controller = SimplePowerShellController()
 
-# 単一コマンドの実行
+# 単一コマンドの実行（同期）
 result = controller.execute_command("Write-Output 'Hello, World!'")
 print(result)  # "Hello, World!"
 
@@ -48,16 +76,57 @@ commands = [
 ]
 results = controller.execute_commands_in_session(commands)
 print(results)  # ["Hello"]
+```
 
-# JSON形式のデータ処理
-json_result = controller.execute_command("@{ 'key' = 'value'; 'data' = @(1, 2, 3) }")
-print(json_result)  # {'key': 'value', 'data': [1, 2, 3]}
+## 同期APIと非同期APIの使い分け
+
+このライブラリは同期APIと非同期API（async/await）の両方を提供しています：
+
+### 同期API（簡単な使用）
+
+```python
+from py_pshell import SimplePowerShellController
+
+controller = SimplePowerShellController()
+
+# 同期メソッド
+result = controller.execute_command("Get-Process")
+print(result)
+
+# リソース解放
+controller.close_sync()
+```
+
+### 非同期API（高度な使用）
+
+```python
+import asyncio
+from py_pshell import SimplePowerShellController
+
+async def main():
+    # 非同期コンテキストマネージャとして使用
+    async with SimplePowerShellController() as controller:
+        # 非同期メソッド
+        result = await controller.run_command("Get-Process")
+        print(result.output)
+        
+        # 複数コマンドの実行
+        results = await controller.run_commands([
+            "Set-Location C:\\temp",
+            "Get-ChildItem"
+        ])
+        
+        for result in results:
+            print(result.output)
+
+# 非同期実行
+asyncio.run(main())
 ```
 
 ## Result型を利用したエラーハンドリング
 
 ```python
-from powershell_controller.simple import SimplePowerShellController
+from py_pshell import SimplePowerShellController
 
 controller = SimplePowerShellController()
 
@@ -107,7 +176,7 @@ result = controller.execute_script(script)
 ### Result型によるスクリプト実行
 
 ```python
-from powershell_controller.utils.result_helper import ResultHandler
+from py_pshell.utils.result_helper import ResultHandler
 
 script = """
 try {
@@ -130,16 +199,128 @@ else:
     
 # ResultHandlerを使った処理
 def handle_error(err):
+    # エラーごとの処理
     return f"カスタムエラーメッセージ: {err}"
-    
+
+# ResultHandlerを使ったエラー処理
 output = ResultHandler.unwrap_or_else(result, handle_error)
+```
+
+## 例外処理とエラーハンドリング
+
+ライブラリは3つのレベルのエラーハンドリングを提供します：
+
+### 1. 例外による方法
+
+```python
+from py_pshell import SimplePowerShellController
+from py_pshell.core.errors import (
+    PowerShellExecutionError,
+    PowerShellTimeoutError,
+    CommunicationError,
+    ProcessError
+)
+
+controller = SimplePowerShellController()
+
+try:
+    result = controller.execute_command("Get-NonExistentCmdlet")
+except PowerShellExecutionError as e:
+    print(f"コマンド実行エラー: {e}")
+except PowerShellTimeoutError:
+    print("タイムアウトが発生しました")
+except CommunicationError:
+    print("通信エラーが発生しました")
+except ProcessError:
+    print("プロセスエラーが発生しました")
+except Exception as e:
+    print(f"その他のエラー: {e}")
+```
+
+### 2. Result型による方法
+
+```python
+from py_pshell import SimplePowerShellController
+
+controller = SimplePowerShellController()
+result = controller.execute_command_result("Get-Process")
+
+# パターン1: 条件分岐による処理
+if result.is_ok():
+    data = result.unwrap()
+    print(f"成功: {data}")
+else:
+    error = result.unwrap_err()
+    print(f"エラー: {error}")
+
+# パターン2: デフォルト値を使用
+data = result.unwrap_or("デフォルト値")
+
+# パターン3: エラー時にカスタム関数を実行
+def handle_error(err):
+    # エラーログを記録
+    logger.error(f"エラーが発生: {err}")
+    return "エラー発生時のデフォルト値"
+
+from py_pshell.utils.result_helper import ResultHandler
+data = ResultHandler.unwrap_or_else(result, handle_error)
+```
+
+### 3. コマンド結果オブジェクトによる方法
+
+```python
+from py_pshell import SimplePowerShellController
+
+controller = SimplePowerShellController()
+
+# 非同期実行の場合
+async def process_command():
+    result = await controller.run_command("Get-Process")
+    if result.success:
+        print(f"出力: {result.output}")
+    else:
+        print(f"エラー: {result.error}")
+        print(f"詳細: {result.details}")
+```
+
+## ロギング設定
+
+ライブラリは[loguru](https://github.com/Delgan/loguru)を使用して詳細なログを提供します：
+
+```python
+from py_pshell import SimplePowerShellController
+from loguru import logger
+
+# ログレベルの設定
+logger.remove()  # デフォルトハンドラを削除
+logger.add(sys.stderr, level="INFO")  # 標準エラー出力にINFOレベルで出力
+logger.add("powershell.log", rotation="10 MB", level="DEBUG")  # ファイルにDEBUGレベルで出力
+
+# 構造化ロギングの活用
+logger = logger.bind(component="app", service="powershell")
+
+# コントローラーの初期化
+controller = SimplePowerShellController()
+```
+
+### ロギングオプションの設定
+
+```python
+from py_pshell.utils.config import PowerShellControllerSettings
+
+settings = PowerShellControllerSettings(
+    log_level="DEBUG",  # ログレベル設定
+    debug_logging=True,  # デバッグログの有効化
+)
+
+controller = SimplePowerShellController(settings=settings)
 ```
 
 ## 開発とテスト
 
 ```bash
 # 依存パッケージのインストール
-pip install -r requirements.txt
+pip install -e ".[dev]"
 
 # コードスタイルチェック
 ruff check .
@@ -148,47 +329,46 @@ ruff check .
 mypy src/
 
 # テストの実行（カバレッジレポート付き）
-pytest tests/ -v --cov=powershell_controller --cov-report=term-missing
-```
-
-## エラーハンドリング
-
-```python
-from powershell_controller.simple import SimplePowerShellController
-from powershell_controller.core.errors import (
-    PowerShellExecutionError,
-    PowerShellTimeoutError
-)
-
-controller = SimplePowerShellController()
-
-try:
-    result = controller.execute_command("Some-Command", timeout=30)
-except PowerShellTimeoutError:
-    print("コマンドがタイムアウトしました")
-except PowerShellExecutionError as e:
-    print(f"エラーが発生しました: {e}")
+pytest tests/ -v --cov=py_pshell --cov-report=term-missing
 ```
 
 ## 設定のカスタマイズ
 
 ```python
-from powershell_controller.utils.config import (
+from py_pshell.utils.config import (
     PowerShellControllerSettings,
-    RetryConfig
+    PowerShellConfig,
+    TimeoutConfig
 )
 
 config = PowerShellControllerSettings(
+    # ロギング設定
     log_level="DEBUG",
-    log_file="powershell.log",
-    retry_config=RetryConfig(
-        max_attempts=5,
-        base_delay=1.0,
-        max_delay=10.0
-    )
+    debug_logging=True,
+    
+    # タイムアウト設定
+    timeouts=TimeoutConfig(
+        default=60.0,
+        startup=30.0,
+        execution=15.0,
+        read=5.0,
+        shutdown=10.0,
+        cleanup=10.0
+    ),
+    
+    # PowerShell設定
+    powershell=PowerShellConfig(
+        path="C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+        args=["-NoProfile", "-ExecutionPolicy", "Bypass"],
+        encoding="utf-8"
+    ),
+    
+    # リトライ設定
+    retry_attempts=3,
+    retry_delay=1.0
 )
 
-controller = SimplePowerShellController(config=config)
+controller = SimplePowerShellController(settings=config)
 ```
 
 ## 堅牢性を向上させる機能
@@ -215,16 +395,25 @@ beartype_this_package(conf=beartype_conf)
 自動リトライ機能により、一時的なネットワークエラーやプロセス問題を克服します。
 
 ```python
-from powershell_controller.utils.config import RetryConfig
+from py_pshell.utils.config import PowerShellControllerSettings
 
-retry_config = RetryConfig(
-    max_attempts=5,  # 最大試行回数
-    base_delay=1.0,  # 初期待機時間（秒）
-    max_delay=30.0,  # 最大待機時間（秒）
-    jitter=0.1      # ランダム変動係数
+settings = PowerShellControllerSettings(
+    retry_attempts=5,  # 最大試行回数
+    retry_delay=1.0,   # 初期待機時間（秒）
 )
 
-controller = SimplePowerShellController(retry_config=retry_config)
+controller = SimplePowerShellController(settings=settings)
+```
+
+## 環境変数による設定
+
+```bash
+# PowerShell Controller設定
+export PS_CTRL_LOG_LEVEL=INFO
+export PS_CTRL_DEBUG_LOGGING=true
+export PS_CTRL_PS_PATH="C:\Program Files\PowerShell\7\pwsh.exe"
+export PS_CTRL_RETRY_ATTEMPTS=3
+export PS_CTRL_RETRY_DELAY=1.0
 ```
 
 ## トラブルシューティング
@@ -245,53 +434,10 @@ controller = SimplePowerShellController(retry_config=retry_config)
    - beartype実行時型チェックによるエラーが出た場合は、正しい型のデータを渡しているか確認してください
    - 型注釈と実際の値の型が一致していない可能性があります
 
+5. 非同期コードでの警告
+   - `asyncio.create_task`使用時の警告が出る場合は、適切にタスクを管理してください
+   - `await`し忘れたコルーチンがないか確認してください
+
 ## ライセンス
 
 MIT License 
-
-## 設定方法
-
-### 環境変数による設定
-
-```bash
-# PowerShell Controller設定
-export PS_CTRL_LOG_LEVEL=INFO
-export PS_CTRL_LOG_FILE=powershell.log
-export PS_CTRL_PS_PATH="C:\Program Files\PowerShell\7\pwsh.exe"
-```
-
-### .envファイルによる設定
-
-```ini
-# .env
-PS_CTRL_LOG_LEVEL=INFO
-PS_CTRL_LOG_FILE=powershell.log
-PS_CTRL_PS_PATH=C:\Program Files\PowerShell\7\pwsh.exe
-```
-
-### コードによる設定
-
-```python
-from powershell_controller.utils.config import PowerShellControllerSettings, RetryConfig
-
-settings = PowerShellControllerSettings(
-    log_level="DEBUG",
-    log_file="powershell.log",
-    ps_path=r"C:\Program Files\PowerShell\7\pwsh.exe",
-    retry_config=RetryConfig(
-        max_attempts=3,
-        base_delay=1.0,
-        max_delay=5.0,
-        jitter=0.1
-    )
-)
-
-controller = SimplePowerShellController(config=settings)
-```
-
-### 設定の優先順位
-
-1. コードで直接指定された値
-2. 環境変数
-3. .envファイル
-4. デフォルト値 

@@ -13,9 +13,9 @@ from contextlib import asynccontextmanager
 
 from loguru import logger
 
-from powershell_controller import PowerShellControllerSettings
-from powershell_controller.core.session import PowerShellSession
-from powershell_controller.simple import SimplePowerShellController, CommandResult
+from py_pshell import PowerShellControllerSettings
+from py_pshell.core.session import PowerShellSession
+from py_pshell.simple import SimplePowerShellController, CommandResult
 
 # デフォルトではモックを使用する
 # 環境変数POWERSHELL_TEST_MOCKが設定されている場合は、その値を使用
@@ -50,7 +50,7 @@ def event_loop_policy():
 @pytest.fixture
 def session_config() -> PowerShellControllerSettings:
     """テスト用のカスタム設定を持つPowerShellControllerSettingsを返します。"""
-    from powershell_controller.utils.config import PowerShellConfig, TimeoutConfig
+    from py_pshell.utils.config import PowerShellConfig, TimeoutConfig
     
     # タイムアウト設定を短く
     timeout_config = TimeoutConfig(
@@ -117,7 +117,7 @@ async def async_mock_execute(command: str) -> str:
         return "Output"
     elif "Get-NonExistentCommand" in command or "Get-NonExistentCmdlet" in command:
         # 存在しないコマンドの場合、例外を発生
-        from powershell_controller.core.errors import PowerShellExecutionError
+        from py_pshell.core.errors import PowerShellExecutionError
         raise PowerShellExecutionError("CommandNotFound: The term 'Get-NonExistentCommand' is not recognized.")
     elif "Test-Error" in command:
         # テスト用のエラー
@@ -178,12 +178,12 @@ def use_mock_sessions(monkeypatch):
             return "Output"
         elif "Get-NonExistentCommand" in command or "Get-NonExistentCmdlet" in command:
             # 存在しないコマンドの場合、例外を発生
-            from powershell_controller.core.errors import PowerShellExecutionError
+            from py_pshell.core.errors import PowerShellExecutionError
             raise PowerShellExecutionError("CommandNotFound: The term 'Get-NonExistentCommand' is not recognized.", details=command)
         elif "Start-Sleep" in command:
             # スリープコマンドの場合、タイムアウト例外を発生
             if "-Seconds 5" in command:
-                from powershell_controller.core.errors import PowerShellTimeoutError
+                from py_pshell.core.errors import PowerShellTimeoutError
                 raise PowerShellTimeoutError("Operation timed out")
             # 短いスリープは普通に成功
             return "Sleep completed"
@@ -211,11 +211,11 @@ def use_mock_sessions(monkeypatch):
             return "複数コマンド実行完了"
         elif "Test-ConnectionFailed" in command:
             # 通信エラーのシミュレーション
-            from powershell_controller.core.errors import CommunicationError
+            from py_pshell.core.errors import CommunicationError
             raise CommunicationError("通信エラーが発生しました")
         elif "Test-ProcessFailed" in command:
             # プロセスエラーのシミュレーション
-            from powershell_controller.core.errors import ProcessError
+            from py_pshell.core.errors import ProcessError
             raise ProcessError("プロセスが予期せず終了しました")
         elif "Get-Date" in command:
             # 日付コマンド
@@ -295,7 +295,7 @@ def use_mock_sessions(monkeypatch):
     # execute_command_resultをモック化
     def mock_execute_command_result(self, command: str):
         from result import Ok, Err
-        from powershell_controller.core.errors import PowerShellExecutionError
+        from py_pshell.core.errors import PowerShellExecutionError
         
         if "Get-NonExistentCommand" in command:
             return Err(PowerShellExecutionError("CommandNotFound: The term 'Get-NonExistentCommand' is not recognized."))
@@ -313,7 +313,7 @@ def use_mock_sessions(monkeypatch):
     # execute_commands_in_session_resultをモック化
     def mock_execute_commands_in_session_result(self, commands: list):
         from result import Ok, Err
-        from powershell_controller.core.errors import PowerShellExecutionError
+        from py_pshell.core.errors import PowerShellExecutionError
         
         if any("Get-NonExistentCommand" in cmd for cmd in commands):
             return Err(PowerShellExecutionError("CommandNotFound: The term 'Get-NonExistentCommand' is not recognized."))

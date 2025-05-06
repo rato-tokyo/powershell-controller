@@ -3,7 +3,7 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "powershell_controller"
+name = "py-pshell"
 version = "0.1.0"
 description = "PowerShell 7 controller for MCP"
 readme = "README.md"
@@ -40,8 +40,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/powershell_controller"
-Issues = "https://github.com/yourusername/powershell_controller/issues"
+Homepage = "https://github.com/yourusername/py-pshell"
+Issues = "https://github.com/yourusername/py-pshell/issues"
 
 [project.optional-dependencies]
 dev = [
@@ -117,7 +117,7 @@ select = [
 ignore = []
 
 [tool.ruff.isort]
-known-first-party = ["powershell_controller"]
+known-first-party = ["py_pshell"]
 
 [tool.mypy]
 python_version = "3.12"
