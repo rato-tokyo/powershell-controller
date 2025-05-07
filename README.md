@@ -1,14 +1,16 @@
-# PowerShell Controller
+# PowerShell Controller for Python
 
-Pythonから簡単にPowerShellを操作するためのライブラリです。Windows, Linux, macOSに対応しています。
+Pythonから簡単にPowerShellを操作するためのライブラリです。
+同期・非同期APIを提供し、Windows/Linux/macOSで動作します。
 
-## 主な機能
+## 特徴
 
-- 簡単なインターフェース: PowerShellコマンドを直感的に実行
-- 同期・非同期API: 両方のスタイルをサポート
-- エラーハンドリング: 堅牢なエラー処理機能
-- Result型: 関数型プログラミングスタイルでのエラーハンドリングをサポート
-- カスタマイズ可能: 設定や動作を柔軟に調整可能
+- シンプルで直感的なAPI
+- 同期・非同期の両方のインターフェース
+- 強力なエラーハンドリング
+- タイムアウト処理
+- コマンドとスクリプトの両方をサポート
+- クロスプラットフォーム対応（Windows, Linux, macOS）
 - インターフェース指向: テストやモックが容易
 
 ## インストール
@@ -88,55 +90,23 @@ async def main():
 asyncio.run(main())
 ```
 
-### Result型を使用したエラーハンドリング
-
-```python
-from py_pshell import PowerShellController
-
-controller = PowerShellController()
-
-# Result型を返す関数を使用
-result = controller.execute_command_result("Get-Process | Select-Object -First 5")
-
-if result.is_ok():
-    # 成功時の処理
-    output = result.unwrap()
-    print(f"成功: {output}")
-else:
-    # エラー時の処理
-    error = result.unwrap_err()
-    print(f"エラー: {error}")
-
-controller.close_sync()
-```
-
 ## カスタマイズ
 
 設定をカスタマイズする例:
 
 ```python
-from py_pshell import PowerShellController, PowerShellControllerSettings, TimeoutConfig, PowerShellConfig
-
-# タイムアウト設定
-timeout_config = TimeoutConfig(
-    default=10.0,  # デフォルトのタイムアウト
-    startup=15.0,  # 起動時のタイムアウト
-    execution=5.0,  # コマンド実行のタイムアウト
-    shutdown=3.0   # シャットダウン時のタイムアウト
-)
-
-# PowerShell設定
-ps_config = PowerShellConfig(
-    path="pwsh",  # PowerShellの実行パス
-    arguments=["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass"],
-    encoding="utf-8"  # 文字エンコーディング
-)
+from py_pshell import PowerShellController, PowerShellControllerSettings
 
 # コントローラー設定
 settings = PowerShellControllerSettings(
-    powershell=ps_config,
-    timeout=timeout_config,
-    log_level="INFO"  # ログレベル
+    powershell_executable="pwsh",  # PowerShellの実行パス
+    timeout=PowerShellControllerSettings.TimeoutSettings(
+        startup=15.0,  # 起動時のタイムアウト
+        shutdown=3.0,  # シャットダウン時のタイムアウト
+        default=10.0,  # デフォルトのタイムアウト
+    ),
+    encoding="utf-8",  # 文字エンコーディング
+    debug=True  # デバッグモード
 )
 
 # カスタム設定でコントローラーを初期化
@@ -166,22 +136,6 @@ def test_with_mock(mock_controller: PowerShellControllerProtocol):
     assert result == "モック出力"
 ```
 
-## テスト用のモックモード
-
-テストやデモ用にモックモードを利用できます:
-
-```python
-from py_pshell import PowerShellController, PowerShellControllerSettings
-
-# モックモードを有効化
-settings = PowerShellControllerSettings(use_mock=True)
-controller = PowerShellController(settings=settings)
-
-# 実際のPowerShellは呼び出されず、モック応答が返される
-output = controller.execute_command("Get-Process")
-print(output)  # "モック出力: Get-Process" が表示される
-```
-
 ## 便利なショートカットメソッド
 
 PowerShellでよく使われる操作のためのショートカットメソッドも用意されています：
@@ -196,12 +150,6 @@ try:
     data = controller.get_json("Get-Process | Select-Object -First 3 -Property Name,Id,CPU | ConvertTo-Json")
     for process in data:
         print(f"プロセス: {process['Name']}, ID: {process['Id']}")
-    
-    # 環境変数の操作
-    controller.set_environment_variable("PS_TEST_VAR", "テスト値")
-    value = controller.get_environment_variable("PS_TEST_VAR")
-    print(f"環境変数: {value}")
-    
 finally:
     controller.close_sync()
 ```

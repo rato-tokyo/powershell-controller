@@ -12,8 +12,10 @@ def shortcuts_example():
     """ショートカットメソッドの使用例"""
     print("===== ショートカットメソッドの使用例 =====")
     
-    # モックモードで初期化（実際のPowerShellを使用する場合はFalseに設定）
-    settings = PowerShellControllerSettings(use_mock=True)
+    # コントローラー初期化
+    settings = PowerShellControllerSettings(
+        debug=True  # デバッグモード有効化
+    )
     controller = PowerShellController(settings=settings)
     
     try:
@@ -23,27 +25,18 @@ def shortcuts_example():
             data = controller.get_json("Get-Process | Select-Object -First 3 -Property Name,Id,CPU | ConvertTo-Json")
             print(f"  取得データ: {data}")
             
-            # モックモードでは実際のJSONは返らないので、模擬データで処理例を示す
-            mock_data = [
-                {"Name": "chrome", "Id": 1234, "CPU": 10.5},
-                {"Name": "explorer", "Id": 2345, "CPU": 5.2},
-                {"Name": "pwsh", "Id": 3456, "CPU": 2.1}
-            ]
-            
+            # データ処理例
             print("  データ処理例:")
-            for process in mock_data:
-                print(f"    プロセス: {process['Name']}, ID: {process['Id']}, CPU: {process['CPU']}%")
+            for process in data:
+                name = process.get('Name', 'Unknown')
+                process_id = process.get('Id', 0)
+                cpu = process.get('CPU', 0)
+                print(f"    プロセス: {name}, ID: {process_id}, CPU: {cpu}%")
         except Exception as e:
             print(f"  エラー: {e}")
         
-        # 環境変数操作
-        print("\n[2] 環境変数の操作:")
-        controller.set_environment_variable("PS_TEST_VAR", "テスト値")
-        value = controller.get_environment_variable("PS_TEST_VAR")
-        print(f"  設定した環境変数の値: {value}")
-        
         # スクリプト実行
-        print("\n[3] スクリプト実行:")
+        print("\n[2] スクリプト実行:")
         script = """
         # テストデータの準備
         $users = @(

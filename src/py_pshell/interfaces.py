@@ -7,9 +7,6 @@ PowerShellを操作するためのインターフェース定義を提供しま�
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Union
-from result import Result
-
-from .errors import PowerShellError
 
 class CommandResultProtocol(ABC):
     """
@@ -101,20 +98,6 @@ class PowerShellControllerProtocol(ABC):
         pass
     
     @abstractmethod
-    def execute_command_result(self, command: str, timeout: Optional[float] = None) -> Result[str, PowerShellError]:
-        """
-        PowerShellコマンドを実行し、Result型で結果を返します。
-        
-        Args:
-            command: 実行するPowerShellコマンド
-            timeout: コマンド実行のタイムアウト（秒）
-            
-        Returns:
-            Result[str, PowerShellError]: 成功した場合はOk(output)、失敗した場合はErr(error)
-        """
-        pass
-    
-    @abstractmethod
     def execute_script(self, script: str, timeout: Optional[float] = None) -> str:
         """
         PowerShellスクリプトを実行します。
@@ -125,20 +108,6 @@ class PowerShellControllerProtocol(ABC):
             
         Returns:
             str: スクリプトの実行結果
-        """
-        pass
-    
-    @abstractmethod
-    def execute_script_result(self, script: str, timeout: Optional[float] = None) -> Result[str, PowerShellError]:
-        """
-        PowerShellスクリプトを実行し、Result型で結果を返します。
-        
-        Args:
-            script: 実行するPowerShellスクリプト
-            timeout: スクリプト実行のタイムアウト（秒）
-            
-        Returns:
-            Result[str, PowerShellError]: 成功した場合はOk(output)、失敗した場合はErr(error)
         """
         pass
     
@@ -157,30 +126,6 @@ class PowerShellControllerProtocol(ABC):
         pass
     
     @abstractmethod
-    def get_environment_variable(self, name: str) -> str:
-        """
-        PowerShell環境変数の値を取得します。
-        
-        Args:
-            name: 環境変数名
-            
-        Returns:
-            str: 環境変数の値
-        """
-        pass
-    
-    @abstractmethod
-    def set_environment_variable(self, name: str, value: str) -> None:
-        """
-        PowerShell環境変数を設定します。
-        
-        Args:
-            name: 環境変数名
-            value: 設定する値
-        """
-        pass
-    
-    @abstractmethod
     async def close(self) -> None:
         """
         PowerShellセッションを閉じます。
@@ -192,4 +137,4 @@ class PowerShellControllerProtocol(ABC):
         """
         PowerShellセッションを同期的に閉じます。
         """
-        pass 
+        pass

@@ -6,7 +6,6 @@ import asyncio
 import os
 import platform
 from loguru import logger
-from result import Result, Ok, Err
 
 from py_pshell.controller import PowerShellController, CommandResult
 from py_pshell.config import PowerShellControllerSettings
@@ -75,21 +74,21 @@ async def test_error_handling(use_mock_sessions):
 
 @pytest.mark.asyncio
 @pytest.mark.timeout(30)
-async def test_result_type_usage(use_mock_sessions):
-    """Result型を使用したエラーハンドリングテスト"""
+async def test_try_except_handling(use_mock_sessions):
+    """try-exceptによるエラーハンドリングテスト"""
     controller = None
     try:
         controller = PowerShellController()
         
         # 成功する場合
-        result = controller.execute_command_result("Write-Output 'Success'")
-        assert result.is_ok()
-        assert result.unwrap() == "Success"
+        output = controller.execute_command("Write-Output 'Success'")
+        assert output == "Success"
         
-        # 失敗する場合
-        error_result = controller.execute_command_result("Get-NonExistentCommand")
-        assert error_result.is_err()
-        error = error_result.unwrap_err()
+        # 失敗する場合 - 例外がスローされることを確認
+        with pytest.raises(PowerShellExecutionError) as excinfo:
+            controller.execute_command("Get-NonExistentCommand")
+        
+        error = excinfo.value
         assert isinstance(error, PowerShellExecutionError)
         assert "NonExistentCommand" in str(error) or "not recognized" in str(error)
         

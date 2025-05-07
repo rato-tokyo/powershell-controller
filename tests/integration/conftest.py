@@ -1,5 +1,5 @@
 """
-PowerShellテスト用の共通フィクスチャ
+PowerShellテスト用の共通フィクスチャ（統合テスト用）
 """
 import asyncio
 import os
@@ -16,7 +16,8 @@ import pytest_asyncio
 from loguru import logger
 
 from py_pshell.config import PowerShellControllerSettings
-from py_pshell.controller import CommandResult, PowerShellController
+from py_pshell.controller import PowerShellController
+from py_pshell.utils.command_result import CommandResult
 from py_pshell.errors import (
     CommunicationError,
     PowerShellError,
@@ -38,6 +39,8 @@ def event_loop_policy():
         # Windowsの場合、ProactorEventLoopを使用
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     return asyncio.get_event_loop_policy()
+
+# event_loopフィクスチャは pytest_asyncio が自動的に提供
 
 @pytest.fixture
 def session_config() -> PowerShellControllerSettings:

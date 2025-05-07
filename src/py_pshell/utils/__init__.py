@@ -11,6 +11,8 @@ from typing import Optional, List, Dict, Any, Tuple
 from loguru import logger
 import shutil
 
+from .command_result import CommandResult
+
 def get_powershell_executable() -> str:
     """
     環境に応じたPowerShell実行ファイルのパスを返します。

@@ -13,6 +13,7 @@ from loguru import logger
 import tempfile
 
 from .config import PowerShellControllerSettings
+from .utils.session_util import INIT_SCRIPT, get_process_startup_info, prepare_command_execution, parse_command_result
 from .errors import (
     PowerShellError,
     PowerShellStartupError,
@@ -60,28 +61,13 @@ class PowerShellSession:
             logger.debug("PowerShellセッションは既に実行中です")
             return
             
-        # モックモードかどうかを確認
-        if self.settings.use_mock:
-            logger.debug("モックモードでPowerShellセッションを開始します")
-            self._is_running = True
-            return
-            
         try:
             # PowerShellプロセスの起動
-            ps_path = self.settings.powershell.path
-            ps_args = self.settings.get_all_args()
-            env_vars = self.settings.get_all_env_vars()
+            ps_path = self.settings.powershell_executable
+            ps_args = self.settings.arguments
             
-            # 環境変数の準備
-            env = os.environ.copy()
-            env.update(env_vars)
-            
-            # プロセス起動時の設定
-            startup_info = None
-            if platform.system().lower() == "windows":
-                startup_info = subprocess.STARTUPINFO()
-                startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                startup_info.wShowWindow = subprocess.SW_HIDE
+            # プロセス起動時の設定を取得
+            startup_info = get_process_startup_info()
             
             logger.debug(f"PowerShellプロセスを起動: {ps_path} {' '.join(ps_args)}")
             
@@ -92,7 +78,6 @@ class PowerShellSession:
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                env=env,
                 startupinfo=startup_info
             )
             
@@ -120,8 +105,8 @@ class PowerShellSession:
         if not self._writer:
             return
             
-        init_script = self.settings.powershell.init_script
-        self._writer.write(init_script.encode(self.settings.powershell.encoding) + b"\n")
+        init_script = INIT_SCRIPT
+        self._writer.write(init_script.encode(self.settings.encoding) + b"\n")
         await self._writer.drain()
         logger.debug("初期化スクリプトを送信しました")
     
@@ -154,12 +139,6 @@ class PowerShellSession:
             logger.debug("PowerShellセッションは実行されていません")
             return
             
-        # モックモードの場合は単に状態を更新
-        if self.settings.use_mock:
-            self._is_running = False
-            logger.debug("モックモードのPowerShellセッションを停止しました")
-            return
-            
         try:
             if self.process:
                 # 終了コマンドを送信
@@ -170,72 +149,93 @@ class PowerShellSession:
                     except Exception as e:
                         logger.warning(f"終了コマンドの送信に失敗: {e}")
                 
-                # 少し待ってからプロセスを強制終了
+                # プロセスの終了を待機
                 try:
-                    await asyncio.wait_for(self.process.wait(), self.settings.timeout.shutdown)
+                    await asyncio.wait_for(
+                        self.process.wait(),
+                        self.settings.timeout.shutdown
+                    )
                 except asyncio.TimeoutError:
-                    logger.warning("PowerShellプロセスが時間内に終了しなかったため、強制終了します")
+                    logger.warning(f"PowerShellの通常終了がタイムアウトしました。強制終了します。")
                     self.process.kill()
-                
-                # リソースをクリーンアップ
-                if self._writer:
-                    self._writer.close()
-                    await self._writer.wait_closed()
-                
-                self.process = None
+                    
+                # クリーンアップ
                 self._reader = None
                 self._writer = None
+                self.process = None
                 self._is_running = False
                 
-                logger.info("PowerShellセッションが停止されました")
-        
+                logger.info("PowerShellセッションが停止しました")
+                
         except Exception as e:
             logger.error(f"PowerShellセッションの停止に失敗: {e}")
-            self._is_running = False  # エラーでも状態をリセット
             raise PowerShellShutdownError(f"PowerShellセッションの停止に失敗しました: {e}")
     
     async def _read_line(self) -> str:
         """
-        PowerShellからの出力を1行読み込みます。
+        PowerShellの出力から1行を読み取ります。
         
         Returns:
-            str: 読み込んだ行
+            str: 読み取った行
             
         Raises:
-            CommunicationError: 通信エラーが発生した場合
+            CommunicationError: 読み取りに失敗した場合
         """
         if not self._reader:
-            raise CommunicationError("PowerShellプロセスと通信できません: ストリームが初期化されていません")
+            raise CommunicationError("PowerShellストリームが利用できません")
             
         try:
-            line_bytes = await self._reader.readline()
-            encoding = self.settings.powershell.encoding
-            try:
-                # まずは指定されたエンコーディングでデコード
-                line = line_bytes.decode(encoding).strip()
-            except UnicodeDecodeError:
-                # エラーが発生した場合は代替のエンコーディングで試みる
-                fallback_encodings = ["utf-8", "cp932", "shift-jis", "euc-jp"]
-                for enc in fallback_encodings:
-                    if enc != encoding:
-                        try:
-                            line = line_bytes.decode(enc).strip()
-                            logger.debug(f"代替エンコーディング {enc} でデコードに成功")
-                            break
-                        except UnicodeDecodeError:
-                            continue
-                else:
-                    # すべて失敗した場合はエラーを発生
-                    line = line_bytes.decode(encoding, errors="replace").strip()
-                    logger.warning(f"適切なエンコーディングが見つからないため、置換モードでデコード: {line}")
-            
-            return line
+            line = await self._reader.readline()
+            return line.decode(self.settings.encoding).rstrip('\r\n')
         except Exception as e:
-            raise CommunicationError(f"PowerShellからの読み込みに失敗: {e}")
+            raise CommunicationError(f"PowerShellからの読み取りに失敗しました: {e}")
+    
+    async def _read_until_marker(self, timeout: Optional[float] = None) -> List[str]:
+        """
+        PowerShellの出力をステータスマーカーまで読み取ります。
+        
+        Args:
+            timeout: 読み取りのタイムアウト（秒）
+            
+        Returns:
+            List[str]: 読み取った行のリスト
+            
+        Raises:
+            PowerShellTimeoutError: 読み取りがタイムアウトした場合
+            CommunicationError: 読み取りに失敗した場合
+        """
+        timeout_value = timeout or self.settings.timeout.default
+        output_lines = []
+        
+        try:
+            async def read_output():
+                """非同期で出力を読み取る"""
+                while True:
+                    line = await self._read_line()
+                    output_lines.append(line)
+                    
+                    # ステータスマーカーが見つかれば終了
+                    if line.strip() in ["COMMAND_SUCCESS", "COMMAND_ERROR"]:
+                        return
+            
+            # タイムアウト付きで読み取り
+            await asyncio.wait_for(read_output(), timeout_value)
+            return output_lines
+            
+        except asyncio.TimeoutError:
+            logger.warning(f"PowerShellコマンドの実行がタイムアウトしました（{timeout_value}秒）")
+            raise PowerShellTimeoutError("PowerShellコマンドの実行がタイムアウトしました", "command", timeout_value)
+            
+        except Exception as e:
+            if isinstance(e, PowerShellError):
+                raise
+            
+            logger.error(f"PowerShellセッションでの読み取りエラー: {e}")
+            raise CommunicationError(f"PowerShellセッションでの読み取りエラー: {e}")
     
     async def execute(self, command: str, timeout: Optional[float] = None) -> str:
         """
-        PowerShellコマンドを実行し、結果を返します。
+        PowerShellコマンドを実行します。
         
         Args:
             command: 実行するPowerShellコマンド
@@ -245,70 +245,35 @@ class PowerShellSession:
             str: コマンドの実行結果
             
         Raises:
-            PowerShellExecutionError: コマンド実行時にエラーが発生した場合
-            PowerShellTimeoutError: コマンド実行がタイムアウトした場合
-            CommunicationError: PowerShellプロセスとの通信エラー
+            PowerShellExecutionError: コマンドの実行に失敗した場合
+            PowerShellTimeoutError: コマンドの実行がタイムアウトした場合
+            CommunicationError: PowerShellとの通信に失敗した場合
         """
-        # セッションが実行中でなければ開始
-        if not self._is_running:
+        if not self._is_running or not self._writer or not self._reader:
             await self.start()
         
-        # モックモードの場合はモック応答を返す
-        if self.settings.use_mock:
-            logger.debug(f"モックモードでコマンドを実行: {command}")
-            return f"モック出力: {command}"
-        
-        if not self._writer or not self._reader:
-            raise CommunicationError("PowerShellプロセスと通信できません: ストリームが初期化されていません")
-        
-        # タイムアウト値の設定
-        if timeout is None:
-            timeout = self.settings.timeout.execution
-        
         try:
-            # コマンドを送信
-            logger.debug(f"コマンドを実行: {command}")
+            # コマンドをPowerShellのラッパー関数で実行
+            cmd_to_execute = prepare_command_execution(command)
             
-            # 特殊文字をエスケープ
-            escaped_cmd = command.replace('"', '`"').replace('$', '`$')
-            
-            # __ExecuteCommandラッパー関数を使用
-            wrapped_cmd = f"__ExecuteCommand \"{escaped_cmd}\""
-            self._writer.write(f"{wrapped_cmd}\n".encode(self.settings.powershell.encoding))
+            # コマンドをPowerShellに送信
+            self._writer.write(f"{cmd_to_execute}\n".encode(self.settings.encoding))
             await self._writer.drain()
             
-            # 応答の読み取り
-            output_lines = []
-            command_completed = False
+            # 結果を読み取り
+            output_lines = await self._read_until_marker(timeout)
+            success, result_text = parse_command_result(output_lines)
             
-            while not command_completed:
-                try:
-                    line = await asyncio.wait_for(self._read_line(), timeout)
-                    
-                    # 終了マーカーをチェック
-                    if line == "COMMAND_SUCCESS":
-                        command_completed = True
-                        continue
-                    elif line == "COMMAND_ERROR":
-                        error_message = "\n".join(output_lines)
-                        raise PowerShellExecutionError(error_message, command)
-                    
-                    # 通常の出力行を追加
-                    output_lines.append(line)
-                    
-                except asyncio.TimeoutError:
-                    logger.error(f"コマンド実行がタイムアウトしました（{timeout}秒）: {command}")
-                    raise PowerShellTimeoutError("コマンド実行がタイムアウトしました", command, timeout)
-            
-            # 結果を返す
-            result = "\n".join(output_lines).strip()
-            logger.debug(f"コマンド実行結果: {result}")
-            return result
-            
-        except PowerShellExecutionError:
-            # 既に適切なエラーが発生しているので再スロー
-            raise
+            if not success:
+                logger.error(f"PowerShellコマンド実行エラー: {result_text}")
+                raise PowerShellExecutionError(result_text, command)
+                
+            return result_text
             
         except Exception as e:
-            logger.error(f"コマンド実行中にエラーが発生: {e}")
-            raise PowerShellExecutionError(f"コマンド実行中にエラーが発生しました: {e}", command) 
+            if isinstance(e, PowerShellError):
+                # 既知のエラーはそのまま再スロー
+                raise
+                
+            logger.error(f"PowerShellコマンド実行中の予期しないエラー: {e}")
+            raise PowerShellExecutionError(f"PowerShellコマンド実行中の予期しないエラー: {e}", command) 

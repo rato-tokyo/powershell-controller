@@ -7,14 +7,16 @@ PowerShellコントローラーの基本的な使用例
 
 from py_pshell.controller import PowerShellController
 from py_pshell.config import PowerShellControllerSettings
-from py_pshell.errors import PowerShellExecutionError
+from py_pshell.errors import PowerShellExecutionError, PowerShellTimeoutError
 
 def basic_example():
     """基本的な使用例"""
     print("===== 基本的な使用例 =====")
     
-    # モックモードを使用（実際のPowerShellを使用する場合はFalseに設定）
-    settings = PowerShellControllerSettings(use_mock=True)
+    # コントローラー設定（必要に応じてカスタマイズ可能）
+    settings = PowerShellControllerSettings(
+        debug=True  # デバッグモード有効化
+    )
     
     # コントローラーの初期化
     controller = PowerShellController(settings=settings)
@@ -35,20 +37,26 @@ def basic_example():
         output = controller.execute_command(script)
         print(f"  出力: {output}")
         
-        # エラーハンドリング例
-        print("\n[3] エラーハンドリング:")
+        # エラーハンドリング例 - 例外処理
+        print("\n[3] try-exceptによるエラーハンドリング:")
         try:
             output = controller.execute_command("Get-NonExistentCommand")
+            print(f"  出力: {output}")
         except PowerShellExecutionError as e:
-            print(f"  エラーが発生しました: {e}")
-        
-        # Result型を使用したエラーハンドリング
-        print("\n[4] Result型の使用:")
-        result = controller.execute_command_result("Get-Process | Select-Object -First 3")
-        if result.is_ok():
-            print(f"  成功: {result.unwrap()}")
-        else:
-            print(f"  エラー: {result.unwrap_err()}")
+            print(f"  実行エラーが発生しました: {e}")
+        except PowerShellTimeoutError as e:
+            print(f"  タイムアウトが発生しました: {e}")
+        except Exception as e:
+            print(f"  その他のエラー: {e}")
+            
+        # タイムアウト設定の例
+        print("\n[4] タイムアウト設定:")
+        try:
+            # 短いタイムアウトで長時間実行するコマンドを実行
+            output = controller.execute_command("Start-Sleep -Seconds 1; Write-Output 'タイムアウト前に完了'", timeout=3.0)
+            print(f"  出力: {output}")
+        except PowerShellTimeoutError as e:
+            print(f"  タイムアウトエラー: {e}")
         
     finally:
         # リソースのクリーンアップ

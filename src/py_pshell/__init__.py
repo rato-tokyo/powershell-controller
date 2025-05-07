@@ -4,9 +4,10 @@ PowerShellコントローラーパッケージ
 Pythonから簡単にPowerShellを操作するためのライブラリです。
 """
 
-from .controller import PowerShellController, CommandResult
+from .controller import PowerShellController
+from .utils.command_result import CommandResult
 from .interfaces import PowerShellControllerProtocol, CommandResultProtocol
-from .config import PowerShellControllerSettings, TimeoutConfig, PowerShellConfig
+from .config import PowerShellControllerSettings
 from .errors import (
     PowerShellError,
     PowerShellExecutionError,
@@ -26,8 +27,6 @@ __all__ = [
     'PowerShellControllerProtocol',
     'CommandResultProtocol',
     'PowerShellControllerSettings',
-    'TimeoutConfig',
-    'PowerShellConfig',
     'PowerShellError',
     'PowerShellExecutionError',
     'PowerShellTimeoutError',
