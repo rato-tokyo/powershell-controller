@@ -6,7 +6,7 @@ alwaysApply: false
 # Refactor Phase
 
 ## 概要
-refactor phaseは、ユーザから指摘された課題や[issues.md](mdc:md:issues.md)に記載された課題に対して改善策を実施するフェーズです。
+refactor phaseは、ユーザから指摘された課題や[issues.md](mdc:issues.md)に記載された課題に対して改善策を実施するフェーズです。
 
 ## 目的
 - 既存コードの品質向上
