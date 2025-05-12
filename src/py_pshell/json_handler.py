@@ -3,6 +3,7 @@ PowerShell JSON処理モジュール
 
 PowerShellコマンドの結果をJSONとして処理する機能を提供します。
 """
+
 import json
 from typing import Any, Dict, cast
 

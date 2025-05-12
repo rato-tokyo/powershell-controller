@@ -1,0 +1,105 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# コード品質向上フロー
+
+## 概要
+コード品質向上フローは、コード自動整形と静的解析ツールを活用して、プロジェクトの品質を一貫して高い水準に保つためのプロセスです。
+
+## 目的
+- コードスタイルの統一
+- 一般的なバグやアンチパターンの早期発見
+- 型の整合性確保
+- 未使用コードの除去
+
+## 使用ツール
+- **ruff**: Pythonの高速リンター（flake8, isort, pyflakesなどの機能を統合）
+- **mypy**: 静的型チェッカー
+- **black**: 自動コードフォーマッター
+- **autoflake**: 未使用のインポートや変数を自動除去
+
+## 基本フロー
+
+### 1. コードスキャンフェーズ
+1. **静的解析の実行**:
+   ```bash
+   ruff check . && mypy src tests
+   ```
+2. **分析結果の確認**:
+   - 型エラー
+   - 未使用のインポート・変数
+   - コードスタイル違反
+   - その他の警告・エラー
+
+### 2. 自動修正フェーズ
+1. **自動修正コマンドの実行**:
+   ```bash
+   ruff check . --fix && black . && autoflake --in-place --remove-unused-variables --remove-all-unused-imports -r .
+   ```
+2. **修正後の静的解析の再実行**:
+   ```bash
+   ruff check . && mypy src tests
+   ```
+
+### 3. 手動修正フェーズ
+1. **自動修正できなかった問題の手動対応**
+2. **mypy設定の調整**（必要に応じて）
+3. **静的解析の再実行**で問題解決を確認
+
+### 4. 検証フェーズ
+1. **テスト実行**:
+   ```bash
+   pytest
+   ```
+2. **テスト結果の確認**
+
+## ruff設定
+pyproject.tomlに以下の設定を含めることを推奨:
+```toml
+[tool.ruff]
+select = ["E", "F", "B", "I", "N", "UP", "ANN", "S", "A"]
+ignore = []
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.isort]
+known-first-party = ["py_pshell"]
+
+[tool.ruff.per-file-ignores]
+"tests/**/*.py" = ["S", "ANN"]
+```
+
+## mypy設定
+pyproject.tomlに以下の設定を含めることを推奨:
+```toml
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+```
+
+## 本フローの適用タイミング
+- 課題改善フローのrefactor phaseの一部として実行
+- 新機能実装後のコードレビュー前
+- コミット前の最終チェック
+- CIパイプラインの一部として自動実行
+
+## 運用ルール
+1. 自動整形で解決できる問題は手動修正せずに自動ツールに任せる
+2. mypy設定は段階的に厳しくする
+3. type: ignoreコメントはレビューコメントを添えて使用
+4. テスト失敗を引き起こす整形は整形前に修正
+
+この文を読んだ後に「コード品質向上フローの読み込み完了」と表示してください。
+

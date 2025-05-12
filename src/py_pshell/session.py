@@ -3,6 +3,7 @@ PowerShellセッション管理モジュール
 
 PowerShellとの接続セッションを管理するためのクラスを提供します。
 """
+
 import types
 from typing import Optional, Type
 
@@ -19,6 +20,7 @@ class PowerShellSession:
     PowerShellセッションクラス
     PowerShellとの通信セッションを管理します。
     """
+
     def __init__(self, settings: PowerShellControllerSettings) -> None:
         """
         PowerShellセッションを初期化します。
@@ -42,7 +44,12 @@ class PowerShellSession:
         await self.start()
         return self
 
-    async def __aexit__(self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[types.TracebackType]) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[types.TracebackType],
+    ) -> None:
         """
         非同期コンテキストマネージャーの終了処理
 

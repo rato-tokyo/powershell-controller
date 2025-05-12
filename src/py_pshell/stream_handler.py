@@ -3,14 +3,15 @@ PowerShellストリーム処理モジュール
 
 PowerShellプロセスとの入出力ストリームを管理する機能を提供します。
 """
+
 import asyncio
-from typing import Optional, Tuple
+from typing import Optional
 
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .config import PowerShellControllerSettings
-from .errors import PowerShellStreamError, PowerShellExecutionError
+from .errors import PowerShellExecutionError, PowerShellStreamError
 
 
 class StreamHandler:
@@ -44,9 +45,7 @@ class StreamHandler:
         self._writer = writer
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=10),
-        reraise=True
+        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10), reraise=True
     )
     async def send_init_script(self) -> None:
         """
@@ -77,9 +76,7 @@ class StreamHandler:
             raise PowerShellStreamError(f"初期化スクリプトの送信に失敗しました: {e}") from e
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=10),
-        reraise=True
+        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10), reraise=True
     )
     async def send_command(self, command: str) -> None:
         """
@@ -106,9 +103,7 @@ class StreamHandler:
             raise PowerShellStreamError(f"コマンドの送信に失敗しました: {e}") from e
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=10),
-        reraise=True
+        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10), reraise=True
     )
     async def read_output(self, timeout: Optional[float] = None) -> str:
         """
@@ -131,8 +126,7 @@ class StreamHandler:
             try:
                 while True:
                     chunk = await asyncio.wait_for(
-                        self._reader.read(4096),
-                        timeout=timeout or self.settings.timeout.command
+                        self._reader.read(4096), timeout=timeout or self.settings.timeout.command
                     )
                     if not chunk:
                         break
@@ -186,12 +180,14 @@ class StreamHandler:
         try:
             await self.send_command(command)
             output = await self.read_output(timeout)
-            
+
             # 出力から成功/失敗を判定
             if "COMMAND_ERROR" in output:
                 error_msg = output.split("COMMAND_ERROR")[0].strip()
-                raise PowerShellExecutionError(f"コマンドの実行に失敗しました: {error_msg}", command)
-            
+                raise PowerShellExecutionError(
+                    f"コマンドの実行に失敗しました: {error_msg}", command
+                )
+
             # 成功メッセージを除去
             result = output.split("COMMAND_SUCCESS")[0].strip()
             return result

@@ -3,6 +3,7 @@ PowerShellコントローラーの設定クラス
 
 このモジュールはPowerShellコントローラーの設定クラスを提供します。
 """
+
 from pathlib import Path
 from typing import List
 
@@ -18,6 +19,7 @@ class PowerShellTimeoutSettings(BaseModel):
         command: コマンド実行のタイムアウト（秒）
         shutdown: 終了時のタイムアウト（秒）
     """
+
     startup: float = Field(default=30.0, description="起動タイムアウト（秒）")
     shutdown: float = Field(default=10.0, description="シャットダウンタイムアウト（秒）")
     default: float = Field(default=30.0, description="デフォルトのコマンドタイムアウト（秒）")
@@ -34,28 +36,35 @@ class PowerShellControllerSettings(BaseModel):
         hide_window: PowerShellウィンドウを非表示にするかどうか
         timeout: タイムアウト設定
     """
-    powershell_path: Path = Field(default=Path("powershell.exe"), description="PowerShell実行ファイルのパス")
-    powershell_args: List[str] = Field(default_factory=lambda: ["-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass"], description="PowerShellコマンドライン引数")
+
+    powershell_path: Path = Field(
+        default=Path("powershell.exe"), description="PowerShell実行ファイルのパス"
+    )
+    powershell_args: List[str] = Field(
+        default_factory=lambda: [
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+        ],
+        description="PowerShellコマンドライン引数",
+    )
     encoding: str = Field(default="utf-8", description="文字エンコーディング")
-    hide_window: bool = Field(default=True, description="PowerShellウィンドウを非表示にするかどうか")
+    hide_window: bool = Field(
+        default=True, description="PowerShellウィンドウを非表示にするかどうか"
+    )
     timeout_settings: PowerShellTimeoutSettings = Field(
-        default_factory=PowerShellTimeoutSettings,
-        description="タイムアウト設定"
+        default_factory=PowerShellTimeoutSettings, description="タイムアウト設定"
     )
     max_retries: int = Field(default=3, description="最大リトライ回数")
     retry_delay: float = Field(default=1.0, description="リトライ間隔（秒）")
 
     # デバッグモード
-    debug: bool = Field(
-        default=False,
-        description="デバッグモードを有効にするかどうか"
-    )
+    debug: bool = Field(default=False, description="デバッグモードを有効にするかどうか")
 
     # カスタムホストを使用するかどうか
-    use_custom_host: bool = Field(
-        default=True,
-        description="カスタムホストを使用するかどうか"
-    )
+    use_custom_host: bool = Field(default=True, description="カスタムホストを使用するかどうか")
 
     def get_command_args(self) -> List[str]:
         """

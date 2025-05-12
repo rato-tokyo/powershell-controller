@@ -3,53 +3,51 @@ PowerShellコントローラーのテスト用ユーティリティ
 
 テストの実行に必要なモックやヘルパー関数を提供します。
 """
-import asyncio
+
 import os
-import sys
-import tempfile
 import platform
-from typing import Dict, Any, Optional, List, Union, Tuple, Callable
-from unittest.mock import MagicMock, AsyncMock
+import tempfile
+from typing import Any, Dict, List, Optional, Union
 
 import pytest
 from loguru import logger
-from contextlib import asynccontextmanager
-from pydantic import BaseModel
-from result import Result, Ok, Err
-import time
 
-from py_pshell.interfaces import CommandResultProtocol, PowerShellControllerProtocol
 from py_pshell.controller import CommandResult
-from py_pshell.config import PowerShellControllerSettings
 from py_pshell.errors import PowerShellExecutionError
+from py_pshell.interfaces import CommandResultProtocol, PowerShellControllerProtocol
 
 # テスト環境の情報
 IS_WINDOWS = platform.system().lower() == "windows"
 IS_CI = "CI" in os.environ
 
+
 class MockCommandResult(CommandResult):
     """
     モックコマンド結果
     """
+
     def __init__(self, output: str = "", error: str = "", success: bool = True, command: str = ""):
-        super().__init__(output=output, error=error, success=success, command=command, execution_time=0.0)
+        super().__init__(
+            output=output, error=error, success=success, command=command, execution_time=0.0
+        )
+
 
 class MockPowerShellController(PowerShellControllerProtocol):
     """
     モックPowerShellコントローラー
-    
+
     テストで使用するためのモックコントローラーです。
     """
-    
+
     def __init__(
-        self, 
+        self,
         command_responses: Dict[str, Union[str, Exception]] = None,
         default_response: str = "",
-        raise_on_unknown: bool = False
+        raise_on_unknown: bool = False,
     ):
         """
         モックコントローラーを初期化します。
-        
+
         Args:
             command_responses: コマンドとその応答のマッピング
             default_response: デフォルトの応答
@@ -60,21 +58,25 @@ class MockPowerShellController(PowerShellControllerProtocol):
         self.raise_on_unknown = raise_on_unknown
         self.executed_commands: List[str] = []
         self.closed = False
-    
-    async def run_command(self, command: str, timeout: Optional[float] = None) -> CommandResultProtocol:
+
+    async def run_command(
+        self, command: str, timeout: Optional[float] = None
+    ) -> CommandResultProtocol:
         """
         コマンドを実行します（モック）
         """
         self.executed_commands.append(command)
         return self._get_result(command)
-    
-    async def run_script(self, script: str, timeout: Optional[float] = None) -> CommandResultProtocol:
+
+    async def run_script(
+        self, script: str, timeout: Optional[float] = None
+    ) -> CommandResultProtocol:
         """
         スクリプトを実行します（モック）
         """
         self.executed_commands.append(script)
         return self._get_result(script)
-    
+
     def execute_command(self, command: str, timeout: Optional[float] = None) -> str:
         """
         コマンドを同期的に実行します（モック）
@@ -84,40 +86,41 @@ class MockPowerShellController(PowerShellControllerProtocol):
         if not result.success:
             raise PowerShellExecutionError(result.error, command)
         return result.output
-    
+
     def execute_script(self, script: str, timeout: Optional[float] = None) -> str:
         """
         スクリプトを同期的に実行します（モック）
         """
         return self.execute_command(script, timeout)
-    
+
     def get_json(self, command: str, timeout: Optional[float] = None) -> Dict[str, Any]:
         """
         コマンドを実行しJSON形式で結果を返します（モック）
         """
         import json
+
         output = self.execute_command(command, timeout)
         return json.loads(output)
-    
+
     async def close(self) -> None:
         """
         コントローラーを閉じます（モック）
         """
         self.closed = True
-    
+
     def close_sync(self) -> None:
         """
         コントローラーを同期的に閉じます（モック）
         """
         self.closed = True
-    
+
     def _get_result(self, command: str) -> CommandResult:
         """
         指定されたコマンドの実行結果を返します。
-        
+
         Args:
             command: 実行するコマンド
-            
+
         Returns:
             CommandResult: コマンド実行結果
         """
@@ -129,14 +132,10 @@ class MockPowerShellController(PowerShellControllerProtocol):
                     error=str(response),
                     success=False,
                     command=command,
-                    execution_time=0.0
+                    execution_time=0.0,
                 )
             return CommandResult(
-                output=response,
-                error="",
-                success=True,
-                command=command,
-                execution_time=0.0
+                output=response, error="", success=True, command=command, execution_time=0.0
             )
         elif self.raise_on_unknown:
             return CommandResult(
@@ -144,7 +143,7 @@ class MockPowerShellController(PowerShellControllerProtocol):
                 error="Unknown command",
                 success=False,
                 command=command,
-                execution_time=0.0
+                execution_time=0.0,
             )
         else:
             return CommandResult(
@@ -152,23 +151,23 @@ class MockPowerShellController(PowerShellControllerProtocol):
                 error="",
                 success=True,
                 command=command,
-                execution_time=0.0
+                execution_time=0.0,
             )
 
 
 def create_powershell_script(content: str) -> str:
     """
     テスト用のPowerShellスクリプトファイルを作成します。
-    
+
     Args:
         content: スクリプトの内容
-        
+
     Returns:
         str: 作成されたスクリプトファイルのパス
     """
     fd, path = tempfile.mkstemp(suffix=".ps1", prefix="test_script_", text=True)
     try:
-        os.write(fd, content.encode('utf-8'))
+        os.write(fd, content.encode("utf-8"))
     finally:
         os.close(fd)
     return path
@@ -177,7 +176,7 @@ def create_powershell_script(content: str) -> str:
 def cleanup_temp_file(path: str) -> None:
     """
     一時ファイルを削除します。
-    
+
     Args:
         path: 削除するファイルのパス
     """
@@ -200,7 +199,7 @@ def mock_controller():
             "Get-Error": PowerShellExecutionError("エラーが発生しました", "Get-Error"),
             "Get-Process | ConvertTo-Json": '[{"Name": "Process1", "Id": 123}, {"Name": "Process2", "Id": 456}]',
         },
-        default_response="Default Response"
+        default_response="Default Response",
     )
 
 
@@ -223,7 +222,7 @@ def temp_script():
     
     $output | ConvertTo-Json
     """
-    
+
     script_path = create_powershell_script(script_content)
     yield script_path
-    cleanup_temp_file(script_path) 
+    cleanup_temp_file(script_path)

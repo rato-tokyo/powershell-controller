@@ -3,6 +3,7 @@ PowerShellセッションユーティリティモジュール
 
 PowerShellセッションに必要なユーティリティ関数を提供します。
 """
+
 import platform
 import subprocess
 from typing import List, Optional, Tuple
@@ -53,6 +54,7 @@ function global:__ExecuteCommand {
 Write-Output "SESSION_READY"
 """
 
+
 def get_startup_info() -> Optional[subprocess.STARTUPINFO]:
     """
     プラットフォームに応じたプロセス起動情報を取得します。
@@ -67,6 +69,7 @@ def get_startup_info() -> Optional[subprocess.STARTUPINFO]:
         startup_info.wShowWindow = subprocess.SW_HIDE
     return startup_info
 
+
 def prepare_command_execution(command: str) -> str:
     """
     PowerShellでコマンドを実行するための準備を行います。
@@ -79,6 +82,7 @@ def prepare_command_execution(command: str) -> str:
     """
     # コマンドをPowerShellのExecuteCommandラッパー関数で実行
     return f"__ExecuteCommand '{command.replace("'", "''")}'"
+
 
 def parse_command_result(output_lines: List[str]) -> Tuple[bool, str]:
     """

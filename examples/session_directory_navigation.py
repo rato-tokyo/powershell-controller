@@ -1,14 +1,16 @@
 """
 セッションを維持したままディレクトリ移動を行うサンプル
 """
+
 import logging
 import os
 import sys
 
 # パスの追加（開発環境での実行用）
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.powershell_controller.simple import SimplePowerShellController
+
 
 def setup_logger():
     """ロガーの設定"""
@@ -18,11 +20,12 @@ def setup_logger():
     # コンソールハンドラーの設定
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 
     return logger
+
 
 def main():
     """メイン処理"""
@@ -37,17 +40,14 @@ def main():
         commands = [
             # 現在のディレクトリを表示
             "$PWD.Path",
-
             # ディレクトリ移動（1回目）
             "cd ..",
             "$PWD.Path",
-
             # ディレクトリ移動（2回目）
             "cd ..",
             "$PWD.Path",
-
             # ディレクトリの内容を表示
-            "Get-ChildItem -Name"
+            "Get-ChildItem -Name",
         ]
 
         logger.info("コマンドの一括実行を開始")
@@ -96,5 +96,6 @@ def main():
     finally:
         logger.info("処理を終了します")
 
+
 if __name__ == "__main__":
-    main() 
+    main()

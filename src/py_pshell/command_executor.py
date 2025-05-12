@@ -3,6 +3,7 @@ PowerShellコマンド実行モジュール
 
 PowerShellコマンドの実行に関する機能を提供します。
 """
+
 import asyncio
 import threading
 from typing import Optional
@@ -34,7 +35,9 @@ class CommandExecutor:
         self._lock = threading.RLock()
         logger.debug("CommandExecutorが初期化されました")
 
-    async def run_command(self, session: PowerShellSession, command: str, timeout: Optional[float] = None) -> CommandResult:
+    async def run_command(
+        self, session: PowerShellSession, command: str, timeout: Optional[float] = None
+    ) -> CommandResult:
         """
         PowerShellコマンドを実行します。
 
@@ -47,29 +50,24 @@ class CommandExecutor:
             CommandResult: コマンドの実行結果
         """
         import time
+
         start_time = time.time()
         try:
             output = await session.execute(command, timeout)
             elapsed = time.time() - start_time
 
             return CommandResult(
-                output=output,
-                error="",
-                success=True,
-                command=command,
-                execution_time=elapsed
+                output=output, error="", success=True, command=command, execution_time=elapsed
             )
         except PowerShellError as e:
             elapsed = time.time() - start_time
             return CommandResult(
-                output="",
-                error=str(e),
-                success=False,
-                command=command,
-                execution_time=elapsed
+                output="", error=str(e), success=False, command=command, execution_time=elapsed
             )
 
-    async def execute_command(self, session: PowerShellSession, command: str, timeout: Optional[float] = None) -> str:
+    async def execute_command(
+        self, session: PowerShellSession, command: str, timeout: Optional[float] = None
+    ) -> str:
         """
         PowerShellコマンドを実行します。
 
@@ -111,7 +109,9 @@ class CommandExecutor:
                     self._loop = asyncio.new_event_loop()
 
                 # ループを別スレッドで実行
-                thread = threading.Thread(target=self._run_event_loop, args=(self._loop,), daemon=True)
+                thread = threading.Thread(
+                    target=self._run_event_loop, args=(self._loop,), daemon=True
+                )
                 thread.start()
 
             return self._loop

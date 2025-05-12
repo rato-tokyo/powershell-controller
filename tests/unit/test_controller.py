@@ -3,17 +3,14 @@ PowerShellコントローラーのテストモジュール
 
 PowerShellコントローラーの機能をテストします。
 """
-import asyncio
-from typing import Any, Dict
-from unittest.mock import AsyncMock, MagicMock
-from unittest.mock import patch
+
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from loguru import logger
 import pytest_asyncio
 
 from py_pshell.controller import PowerShellController
-from py_pshell.errors import PowerShellExecutionError, PowerShellStartupError, PowerShellShutdownError
+from py_pshell.errors import PowerShellShutdownError, PowerShellStartupError
 from py_pshell.interfaces import CommandResultProtocol
 from py_pshell.utils.command_result import CommandResult
 
@@ -29,11 +26,7 @@ async def controller():
     controller._command_executor = AsyncMock()
     controller._command_executor.run_command = AsyncMock(
         return_value=CommandResult(
-            output="Test Output",
-            error="",
-            success=True,
-            command="Get-Process",
-            execution_time=0.1
+            output="Test Output", error="", success=True, command="Get-Process", execution_time=0.1
         )
     )
     await controller.start()
@@ -50,14 +43,14 @@ async def test_context_manager():
     execute_mock = AsyncMock(return_value="Test Output")
     controller._session.execute = execute_mock
     controller._session.stop = AsyncMock()
-    
+
     async with controller as ctrl:
         assert isinstance(ctrl, PowerShellController)
         result = await ctrl.execute_command("Get-Process")
         assert isinstance(result, str)
         assert result == "Test Output"
         execute_mock.assert_awaited_once_with("Get-Process", None)
-    
+
     # コンテキストマネージャーを抜けた後の状態を確認
     assert controller._session is None
 
@@ -114,11 +107,7 @@ async def test_run_command():
     controller._command_executor = AsyncMock()
     controller._command_executor.run_command = AsyncMock(
         return_value=CommandResult(
-            output="Test Output",
-            error="",
-            success=True,
-            command="Get-Process",
-            execution_time=0.1
+            output="Test Output", error="", success=True, command="Get-Process", execution_time=0.1
         )
     )
     await controller.start()
@@ -149,7 +138,7 @@ async def test_run_script():
         error="",
         success=True,
         command="Get-Process | Select-Object -First 1",
-        execution_time=0.1
+        execution_time=0.1,
     )
     controller._command_executor.run_script = AsyncMock(return_value=expected_result)
     await controller.start()
@@ -185,8 +174,7 @@ async def test_get_json():
         assert result["name"] == "test"
         assert result["value"] == 123
         execute_mock.assert_awaited_once_with(
-            "Get-Process | Select-Object -First 1 | ConvertTo-Json",
-            None
+            "Get-Process | Select-Object -First 1 | ConvertTo-Json", None
         )
     finally:
         await controller.close()
@@ -224,13 +212,13 @@ async def test_close_sync():
     controller = PowerShellController()
     controller._session = AsyncMock()
     controller._session.stop = AsyncMock()
-    
+
     # イベントループの実行をモック
     mock_loop = MagicMock()
     mock_loop.is_running.return_value = False
     mock_loop.run_until_complete = MagicMock()
-    
-    with patch('asyncio.get_event_loop', return_value=mock_loop):
+
+    with patch("asyncio.get_event_loop", return_value=mock_loop):
         controller.close_sync()
         assert controller._session is None
         mock_loop.run_until_complete.assert_called_once()
@@ -243,13 +231,13 @@ async def test_close_sync_error():
     controller = PowerShellController()
     controller._session = AsyncMock()
     controller._session.stop = AsyncMock(side_effect=PowerShellShutdownError("Test Error"))
-    
+
     # イベントループの実行をモック
     mock_loop = MagicMock()
     mock_loop.is_running.return_value = False
     mock_loop.run_until_complete = MagicMock(side_effect=PowerShellShutdownError("Test Error"))
-    
-    with patch('asyncio.get_event_loop', return_value=mock_loop):
+
+    with patch("asyncio.get_event_loop", return_value=mock_loop):
         with pytest.raises(PowerShellShutdownError):
             controller.close_sync()
-        assert controller._session is None  # エラーが発生してもセッションはクリーンアップされる 
+        assert controller._session is None  # エラーが発生してもセッションはクリーンアップされる

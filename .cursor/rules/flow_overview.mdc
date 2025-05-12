@@ -26,7 +26,12 @@ alwaysApply: false
    - 成果物: 機能するコード
    - 参照: [green.mdc](mdc:.cursor/rules/phases/green.mdc)
 
-4. **document phase**: ドキュメント整備
+4. **code quality phase**: コード品質の向上
+   - 目的: 静的解析とコード自動整形を適用してコード品質を高める
+   - 成果物: 品質が向上したコード
+   - 参照: [code_quality.mdc](mdc:.cursor/rules/code_quality.mdc)
+
+5. **document phase**: ドキュメント整備
    - 目的: 機能の使用方法や注意点を記録する
    - 成果物: ドキュメントと課題リスト
    - 参照: [document.mdc](mdc:.cursor/rules/phases/document.mdc)
@@ -40,12 +45,17 @@ alwaysApply: false
    - 成果物: リファクタリングされたコード
    - 参照: [refactor.mdc](mdc:.cursor/rules/phases/refactor.mdc)
 
-2. **green phase**: テストの成功確認
+2. **code quality phase**: コード品質の向上
+   - 目的: 静的解析とコード自動整形を適用してコード品質を高める
+   - 成果物: 品質が向上したコード
+   - 参照: [code_quality.mdc](mdc:.cursor/rules/code_quality.mdc)
+
+3. **green phase**: テストの成功確認
    - 目的: リファクタリング後もテストが成功することを確認
    - 成果物: 改善されたコード
    - 参照: [green.mdc](mdc:.cursor/rules/phases/green.mdc)
 
-3. **document phase**: ドキュメント更新
+4. **document phase**: ドキュメント更新
    - 目的: 変更内容の記録と新たな課題の特定
    - 成果物: 更新されたドキュメント
    - 参照: [document.mdc](mdc:.cursor/rules/phases/document.mdc)
@@ -62,13 +72,15 @@ alwaysApply: false
 #### 仕様変更フロー
 1. **contract → red**: インターフェース設計が完了し、ユーザーの承認を得た場合
 2. **red → green**: 失敗するテストが十分に作成された場合
-3. **green → document**: すべてのテストが成功した場合
-4. **document → 完了**: ドキュメント更新が完了した場合
+3. **green → code quality**: すべてのテストが成功した場合
+4. **code quality → document**: コード品質が基準を満たした場合
+5. **document → 完了**: ドキュメント更新が完了した場合
 
 #### 課題改善フロー
-1. **refactor → green**: リファクタリングが完了した場合
-2. **green → document**: すべてのテストが成功した場合
-3. **document → 完了**: ドキュメント更新が完了した場合
+1. **refactor → code quality**: リファクタリングが完了した場合
+2. **code quality → green**: コード品質が基準を満たした場合
+3. **green → document**: すべてのテストが成功した場合
+4. **document → 完了**: ドキュメント更新が完了した場合
 
 ### フローの繰り返しと次のサイクル
 1. 各フローは必要に応じて繰り返し実行できます

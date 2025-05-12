@@ -3,6 +3,7 @@ PowerShellプロセス管理モジュール
 
 PowerShellプロセスの起動と終了を管理する機能を提供します。
 """
+
 import asyncio
 import subprocess
 from typing import Optional, Tuple
@@ -36,9 +37,7 @@ class ProcessManager:
         logger.debug("ProcessManagerが初期化されました")
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=10),
-        reraise=True
+        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10), reraise=True
     )
     async def start(self) -> Tuple[asyncio.StreamReader, asyncio.StreamWriter]:
         """
@@ -64,9 +63,9 @@ class ProcessManager:
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.STDOUT,
                     startupinfo=get_startup_info(),
-                    creationflags=subprocess.CREATE_NO_WINDOW if self.settings.hide_window else 0
+                    creationflags=subprocess.CREATE_NO_WINDOW if self.settings.hide_window else 0,
                 ),
-                timeout=10.0
+                timeout=10.0,
             )
 
             if not process.stdout or not process.stdin:
@@ -77,8 +76,7 @@ class ProcessManager:
             reader = asyncio.StreamReader()
             protocol = asyncio.StreamReaderProtocol(reader)
             transport = await asyncio.wait_for(
-                loop.connect_read_pipe(lambda: protocol, process.stdout),
-                timeout=5.0
+                loop.connect_read_pipe(lambda: protocol, process.stdout), timeout=5.0
             )
             writer = asyncio.StreamWriter(process.stdin, protocol, reader, loop)
 

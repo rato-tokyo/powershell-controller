@@ -3,12 +3,13 @@
 
 PowerShellコマンドの実行を管理するクラスを提供します。
 """
+
 import time
 from typing import Optional
+
 from loguru import logger
 
 from py_pshell.interfaces import CommandResultProtocol
-from py_pshell.errors import PowerShellExecutionError
 from py_pshell.utils.command_result import CommandResult
 
 
@@ -26,7 +27,9 @@ class CommandExecutor:
         """
         self._session = session
 
-    async def run_command(self, command: str, timeout: Optional[float] = None) -> CommandResultProtocol:
+    async def run_command(
+        self, command: str, timeout: Optional[float] = None
+    ) -> CommandResultProtocol:
         """コマンドを実行します。
 
         Args:
@@ -48,7 +51,7 @@ class CommandExecutor:
                 error="",
                 success=True,
                 command=command,
-                execution_time=execution_time
+                execution_time=execution_time,
             )
         except Exception as e:
             execution_time = time.time() - start_time
@@ -58,10 +61,12 @@ class CommandExecutor:
                 error=str(e),
                 success=False,
                 command=command,
-                execution_time=execution_time
+                execution_time=execution_time,
             )
 
-    async def run_script(self, script: str, timeout: Optional[float] = None) -> CommandResultProtocol:
+    async def run_script(
+        self, script: str, timeout: Optional[float] = None
+    ) -> CommandResultProtocol:
         """スクリプトを実行します。
 
         Args:
@@ -74,4 +79,4 @@ class CommandExecutor:
         Raises:
             PowerShellExecutionError: スクリプトの実行に失敗した場合
         """
-        return await self.run_command(script, timeout) 
+        return await self.run_command(script, timeout)

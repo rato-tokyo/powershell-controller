@@ -3,35 +3,46 @@ PowerShellコントローラーのエラークラス定義
 
 このモジュールはPowerShellコントローラーで使用されるすべてのエラークラスを定義します。
 """
+
 from functools import wraps
 from typing import Any, Callable, Optional, TypeVar
 
 from result import Err, Ok, Result
 
 # 型変数
-T = TypeVar('T')
-E = TypeVar('E', bound=Exception)
+T = TypeVar("T")
+E = TypeVar("E", bound=Exception)
+
 
 class PowerShellError(Exception):
     """PowerShellエラーの基底クラス"""
-    pass
+
+
 
 class PowerShellStartupError(PowerShellError):
     """セッション開始エラー"""
-    pass
+
+
 
 class PowerShellShutdownError(PowerShellError):
     """セッション終了エラー"""
-    pass
+
+
 
 class PowerShellExecutionError(PowerShellError):
     """コマンド実行エラー"""
-    pass
+
+
 
 class PowerShellTimeoutError(PowerShellError):
     """PowerShellコマンドの実行がタイムアウトした場合の例外"""
 
-    def __init__(self, message: str = "PowerShell操作がタイムアウトしました", operation: Optional[str] = None, timeout: Optional[float] = None):
+    def __init__(
+        self,
+        message: str = "PowerShell操作がタイムアウトしました",
+        operation: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ):
         self.operation = operation
         self.timeout = timeout
 
@@ -44,11 +55,13 @@ class PowerShellTimeoutError(PowerShellError):
 
         super().__init__(message)
 
+
 class CommunicationError(PowerShellError):
     """PowerShellプロセスとの通信エラー"""
 
     def __init__(self, message: str = "PowerShellプロセスとの通信に失敗しました"):
         super().__init__(message)
+
 
 class ProcessError(PowerShellError):
     """PowerShellプロセス操作エラー"""
@@ -56,11 +69,13 @@ class ProcessError(PowerShellError):
     def __init__(self, message: str = "PowerShellプロセス操作でエラーが発生しました"):
         super().__init__(message)
 
+
 class PowerShellStreamError(PowerShellError):
     """PowerShellストリームの操作に失敗した場合の例外"""
 
     def __init__(self, message: str = "PowerShellストリームの操作に失敗しました"):
         super().__init__(message)
+
 
 def as_result(func: Callable[..., T]) -> Callable[..., Result[T, PowerShellError]]:
     """
@@ -72,6 +87,7 @@ def as_result(func: Callable[..., T]) -> Callable[..., Result[T, PowerShellError
     Returns:
         Result型を返す関数
     """
+
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Result[T, PowerShellError]:
         try:
@@ -81,4 +97,5 @@ def as_result(func: Callable[..., T]) -> Callable[..., Result[T, PowerShellError
             return Err(e)
         except Exception as e:
             return Err(PowerShellError(str(e)))
+
     return wrapper

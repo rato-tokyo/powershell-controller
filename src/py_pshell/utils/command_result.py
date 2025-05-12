@@ -3,7 +3,9 @@
 
 PowerShellコマンドの実行結果を表すクラスを提供します。
 """
-from typing import Dict, Any
+
+from typing import Any, Dict
+
 from pydantic import BaseModel, Field
 
 

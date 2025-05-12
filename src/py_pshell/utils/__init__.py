@@ -3,14 +3,11 @@
 
 PowerShellコントローラーで使用するユーティリティを提供します。
 """
-import asyncio
+
 import os
 import platform
-import shutil
 import tempfile
-from typing import Any, Dict, List, Optional, Tuple
-
-from loguru import logger
+from typing import Any, Dict
 
 from .command_executor import CommandExecutor
 from .command_result import CommandResult
@@ -19,6 +16,7 @@ __all__ = [
     "CommandExecutor",
     "CommandResult",
 ]
+
 
 def get_powershell_executable() -> str:
     """
@@ -31,7 +29,9 @@ def get_powershell_executable() -> str:
 
     if system == "windows":
         # PowerShell 7 (pwsh.exe)を優先
-        pwsh_path = os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "PowerShell", "7", "pwsh.exe")
+        pwsh_path = os.path.join(
+            os.environ.get("ProgramFiles", r"C:\Program Files"), "PowerShell", "7", "pwsh.exe"
+        )
         if os.path.exists(pwsh_path):
             return pwsh_path
 
@@ -40,6 +40,7 @@ def get_powershell_executable() -> str:
     else:
         # Linux/macOS
         return "pwsh"
+
 
 async def create_temp_script(content: str, prefix: str = "ps_script_", suffix: str = ".ps1") -> str:
     """
@@ -55,10 +56,11 @@ async def create_temp_script(content: str, prefix: str = "ps_script_", suffix: s
     """
     fd, path = tempfile.mkstemp(suffix=suffix, prefix=prefix, text=True)
     try:
-        os.write(fd, content.encode('utf-8'))
+        os.write(fd, content.encode("utf-8"))
     finally:
         os.close(fd)
     return path
+
 
 def escape_powershell_string(s: str) -> str:
     """
@@ -72,6 +74,7 @@ def escape_powershell_string(s: str) -> str:
     """
     # シングルクォートをエスケープ
     return s.replace("'", "''")
+
 
 def format_powershell_args(args: Dict[str, Any]) -> str:
     """

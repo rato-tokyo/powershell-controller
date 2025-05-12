@@ -3,22 +3,22 @@ PowerShellコントローラーモジュール
 
 PowerShellコマンドの実行を制御するクラスを提供します。
 """
-import asyncio
-from typing import Any, Dict, Optional, Union
-from loguru import logger
-from result import Result, Ok, Err
 
-from py_pshell.interfaces import (
-    PowerShellControllerProtocol,
-    CommandResultProtocol,
-    PowerShellControllerSettings
-)
+import asyncio
+from typing import Any, Dict, Optional
+
+from loguru import logger
+
 from py_pshell.errors import (
     PowerShellExecutionError,
+    PowerShellShutdownError,
     PowerShellStartupError,
-    PowerShellShutdownError
 )
-from py_pshell.utils.command_result import CommandResult
+from py_pshell.interfaces import (
+    CommandResultProtocol,
+    PowerShellControllerProtocol,
+    PowerShellControllerSettings,
+)
 from py_pshell.utils.command_executor import CommandExecutor
 
 
@@ -142,7 +142,9 @@ class PowerShellController(PowerShellControllerProtocol):
             logger.error(f"コマンドの実行に失敗しました: {e}")
             raise PowerShellExecutionError(f"コマンドの実行に失敗しました: {e}") from e
 
-    async def run_command(self, command: str, timeout: Optional[float] = None) -> CommandResultProtocol:
+    async def run_command(
+        self, command: str, timeout: Optional[float] = None
+    ) -> CommandResultProtocol:
         """PowerShellコマンドを実行し、結果を返します。
 
         Args:
@@ -166,7 +168,9 @@ class PowerShellController(PowerShellControllerProtocol):
             logger.error(f"コマンドの実行に失敗しました: {e}")
             raise PowerShellExecutionError(f"コマンドの実行に失敗しました: {e}") from e
 
-    async def run_script(self, script: str, timeout: Optional[float] = None) -> CommandResultProtocol:
+    async def run_script(
+        self, script: str, timeout: Optional[float] = None
+    ) -> CommandResultProtocol:
         """PowerShellスクリプトを実行し、結果を返します。
 
         Args:
@@ -244,6 +248,7 @@ class PowerShellController(PowerShellControllerProtocol):
         """
         try:
             import json
+
             return json.loads(json_str)
         except Exception as e:
             logger.error(f"JSONのパースに失敗しました: {e}")

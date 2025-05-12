@@ -3,7 +3,9 @@
 
 PowerShellコントローラーで使用するインターフェースを定義します。
 """
+
 from typing import Any, Dict, Optional, Protocol, runtime_checkable
+
 from pydantic import BaseModel
 
 
@@ -77,11 +79,15 @@ class PowerShellControllerProtocol(Protocol):
         """コマンドを実行"""
         ...
 
-    async def run_command(self, command: str, timeout: Optional[float] = None) -> CommandResultProtocol:
+    async def run_command(
+        self, command: str, timeout: Optional[float] = None
+    ) -> CommandResultProtocol:
         """コマンドを実行し、結果を返す"""
         ...
 
-    async def run_script(self, script: str, timeout: Optional[float] = None) -> CommandResultProtocol:
+    async def run_script(
+        self, script: str, timeout: Optional[float] = None
+    ) -> CommandResultProtocol:
         """スクリプトを実行し、結果を返す"""
         ...
 
