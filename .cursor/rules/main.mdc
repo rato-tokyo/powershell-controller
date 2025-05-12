@@ -1,29 +1,49 @@
 ---
-description: どんな場合でも必ず適用するルール
+description: 
 globs: 
 alwaysApply: true
 ---
+# プロジェクトルール（Main）
+
 ## 開発環境
 - Windows 11
 - PowerShell 7
 
 ## 基本方針
 RAIL方針とflow-phase方針を採用します。
-- RAIL方針の理解が曖昧な場合：[rail.mdc](mdc:.cursor/rules/policies/rail.mdc)を読み、ここに戻ってください。
-- flow-phase方針の理解が曖昧な場合：[flow-phase.mdc](mdc:.cursor/rules/policies/flow-phase.mdc)を読み、ここに戻ってください。
+- RAIL方針（Rule-Aware Incremental Loading）: [rail.mdc](mdc:.cursor/rules/policies/rail.mdc)
+- flow-phase方針: [flow-phase.mdc](mdc:.cursor/rules/policies/flow-phase.mdc)
 
-## プロジェクトルールの案内
-- 新規セッション開始直後の場合：[init.mdc](mdc:.cursor/rules/init.mdc)
-- 「仕様変更flow」または「課題改善flow」の理解が曖昧な場合：[flow_overview.mdc](mdc:.cursor/rules/flow_overview.mdc)を読み、ここに戻ってください。
-- 「仕様変更flow」で
-   1. 「contract phase」実施中の場合：[contract.mdc](mdc:.cursor/rules/phases/contract.mdc)
-   2. 「red phase」実施中の場合：[red.mdc](mdc:.cursor/rules/phases/red.mdc)
-   3. 「green phase」実施中の場合：[green.mdc](mdc:.cursor/rules/phases/green.mdc)
-   4. 「document phase」実施中の場合：[document.mdc](mdc:.cursor/rules/phases/document.mdc)
-- 「課題改善flow」で
-   1. 「refactor phase」実施中の場合：[refactor.mdc](mdc:.cursor/rules/phases/refactor.mdc)
-   2. 「green phase」実施中の場合：[green.mdc](mdc:.cursor/rules/phases/green.mdc)
-   3. 「document phase」実施中の場合：[document.mdc](mdc:.cursor/rules/phases/document.mdc)
-- ユーザから個別に指示があった場合：その指示に従って作業を進めてください。
+## プロジェクトルールの参照ガイド
+必要な状況に応じて以下のルールを参照してください：
+
+### 新規セッション
+- 新規セッション開始直後: [init.mdc](mdc:.cursor/rules/init.mdc)
+
+### フロー概要
+- フローの全体像: [flow_overview.mdc](mdc:.cursor/rules/flow_overview.mdc)
+
+### 環境設定
+- 開発環境のセットアップ: [environment.mdc](mdc:.cursor/rules/environment.mdc)
+
+### テスト規約
+- Pythonテストのルール: [python_test.mdc](mdc:.cursor/rules/python_test.mdc)
+
+### 仕様変更フロー
+1. contract phase: [contract.mdc](mdc:.cursor/rules/phases/contract.mdc)
+2. red phase: [red.mdc](mdc:.cursor/rules/phases/red.mdc)
+3. green phase: [green.mdc](mdc:.cursor/rules/phases/green.mdc)
+4. document phase: [document.mdc](mdc:.cursor/rules/phases/document.mdc)
+
+### 課題改善フロー
+1. refactor phase: [refactor.mdc](mdc:.cursor/rules/phases/refactor.mdc)
+2. green phase: [green.mdc](mdc:.cursor/rules/phases/green.mdc)
+3. document phase: [document.mdc](mdc:.cursor/rules/phases/document.mdc)
+
+## 特記事項
+- ユーザからの個別指示がある場合は、そちらを優先してください
+- 各フェーズの開始時・終了時には必ず宣言を行ってください
+- プロジェクトの課題一覧は[issues.md](mdc:issues.md)を参照してください
 
 この文を読んだ後に「main.mdcの読み込み完了」と表示してください。
+

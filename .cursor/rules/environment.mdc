@@ -1,0 +1,49 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 開発環境設定
+
+## 概要
+このプロジェクトの開発環境に関する設定やセットアップ方法について定義します。
+
+## 必須環境
+- **OS**: Windows 11
+- **PowerShell**: PowerShell 7以上
+- **Python**: 3.9以上
+- **依存関係**: pyproject.tomlに記載
+
+## 環境変数
+- 環境変数は`settings.example.env`を`.env`にコピーして設定
+- 機密情報（APIキーなど）は`.env`ファイルに保存し、gitignoreに追加
+
+## 開発ツール
+- **静的解析**: mypy, ruff
+- **テスト**: pytest
+- **フォーマッター**: black, isort
+- **依存管理**: poetry
+
+## セットアップ手順
+1. リポジトリのクローン
+2. Poetryのインストール（未インストールの場合）
+3. `poetry install`で依存関係をインストール
+4. `settings.example.env`を`.env`にコピーして必要な設定を行う
+5. `poetry run pytest`でテストを実行
+
+## 開発ワークフロー
+1. 機能実装前に対応するテストを作成（TDD）
+2. 静的解析ツールの警告を解消
+3. テストが通ることを確認
+4. コミット前に`poetry run pytest --cov=src tests/`を実行
+
+## CI/CD
+- GitHub Actionsで自動テストとリンターを実行
+- `main`ブランチへのマージはテスト成功が条件
+
+## トラブルシューティング
+- PowerShellが実行できない場合はExecution Policyを確認
+- テスト失敗時は`--verbose`フラグで詳細を確認
+
+この文を読んだ後に「環境設定ルールの読み込み完了」と表示してください。
+
