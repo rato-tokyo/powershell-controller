@@ -30,6 +30,7 @@ alwaysApply: false
 3. `poetry install`で依存関係をインストール
 4. `settings.example.env`を`.env`にコピーして必要な設定を行う
 5. `poetry run pytest`でテストを実行
+6. PowerShellバッファサイズの設定（下記「PowerShell設定」参照）
 
 ## 開発ワークフロー
 1. 機能実装前に対応するテストを作成（TDD）
@@ -41,9 +42,26 @@ alwaysApply: false
 - GitHub Actionsで自動テストとリンターを実行
 - `main`ブランチへのマージはテスト成功が条件
 
+## PowerShell設定
+- コンソールバッファサイズの設定:
+  ```powershell
+  # PowerShellプロファイル（$PROFILE）に追加
+  $bufferSize = $Host.UI.RawUI.BufferSize
+  $bufferSize.Width = 200
+  $bufferSize.Height = 5000
+  $Host.UI.RawUI.BufferSize = $bufferSize
+  ```
+- 設定の確認方法: `$Host.UI.RawUI.BufferSize`を実行
+- 出力が多いコマンドの実行については、code_quality.mdcを参照してください
+
 ## トラブルシューティング
 - PowerShellが実行できない場合はExecution Policyを確認
 - テスト失敗時は`--verbose`フラグで詳細を確認
+- コンソールバッファサイズエラー発生時:
+  - `System.ArgumentOutOfRangeException: The value must be greater than or equal to zero and less than the console's buffer size in that dimension. (Parameter 'top')`
+  - 上記「PowerShell設定」を適用
+  - コマンドを分割して実行
+  - 必要に応じてファイル出力を使用: `command > output.txt`
 
 この文を読んだ後に「環境設定ルールの読み込み完了」と表示してください。
 

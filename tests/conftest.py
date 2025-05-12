@@ -14,7 +14,7 @@ import pytest_asyncio
 from loguru import logger
 
 from py_pshell.config import PowerShellControllerSettings, PowerShellTimeoutSettings
-from py_pshell.controller import CommandResult, PowerShellController
+from py_pshell.controller import PowerShellController
 from py_pshell.errors import (
     CommunicationError,
     PowerShellExecutionError,
@@ -22,6 +22,7 @@ from py_pshell.errors import (
     ProcessError,
 )
 from py_pshell.session import PowerShellSession
+from py_pshell.utils.command_result import CommandResult
 
 # テスト環境の情報
 IS_WINDOWS = sys.platform.lower() == "win32"

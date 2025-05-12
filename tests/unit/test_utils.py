@@ -12,9 +12,9 @@ from typing import Any
 import pytest
 from loguru import logger
 
-from py_pshell.controller import CommandResult
 from py_pshell.errors import PowerShellExecutionError
 from py_pshell.interfaces import CommandResultProtocol, PowerShellControllerProtocol
+from py_pshell.utils.command_result import CommandResult
 
 # テスト環境の情報
 IS_WINDOWS = platform.system().lower() == "windows"

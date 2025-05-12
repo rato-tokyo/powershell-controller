@@ -25,7 +25,7 @@ alwaysApply: false
 ### 1. コードスキャンフェーズ
 1. **静的解析の実行**:
    ```bash
-   ruff check . && mypy src tests
+   ruff check . --output-format=concise && mypy src tests
    ```
 2. **分析結果の確認**:
    - 型エラー
@@ -36,11 +36,11 @@ alwaysApply: false
 ### 2. 自動修正フェーズ
 1. **自動修正コマンドの実行**:
    ```bash
-   ruff check . --fix && black . && autoflake --in-place --remove-unused-variables --remove-all-unused-imports -r .
+   ruff check . --fix --output-format=concise && black . && autoflake --in-place --remove-unused-variables --remove-all-unused-imports -r .
    ```
 2. **修正後の静的解析の再実行**:
    ```bash
-   ruff check . && mypy src tests
+   ruff check . --output-format=concise && mypy src tests
    ```
 
 ### 3. 手動修正フェーズ
@@ -55,6 +55,24 @@ alwaysApply: false
    ```
 2. **テスト結果の確認**
 
+## ツール設定の管理
+
+### 設定エラー発見時の対応方針
+静的解析ツールによるエラーが検出された場合、以下の判断基準で対応してください：
+
+1. **コードの問題** - 実際にコードの品質に影響する問題はコードを修正します
+2. **ツールの設定ミス** - プロジェクトの方針と合っていない設定はツール設定を修正します
+
+特に以下のような状況では、コードではなく設定を修正してください：
+- Python 3.10の型構文（`X | Y`）を使用しているのにmypyがPython 3.9を想定している場合
+- プロジェクトの規約に沿った命名・構造に対して不適切な警告が出る場合
+- 意図的に使用している構文やパターンに対する警告
+
+### 優先順位
+1. **pyproject.tomlの修正** - 設定は一元管理し、個別ファイルでの抑制は避ける
+2. **適切なignoreの使用** - 特定のパターンに対する例外設定
+3. **最小限のコード内抑制コメント** - どうしても必要な場合のみ使用（理由を添える）
+
 ## ruff設定
 pyproject.tomlに以下の設定を含めることを推奨:
 ```toml
@@ -62,7 +80,8 @@ pyproject.tomlに以下の設定を含めることを推奨:
 select = ["E", "F", "B", "I", "N", "UP", "ANN", "S", "A"]
 ignore = []
 line-length = 100
-target-version = "py39"
+target-version = "py310"  # Python 3.10以上を使用している場合
+output-format = "concise"  # 簡潔な出力形式を使用
 
 [tool.ruff.isort]
 known-first-party = ["py_pshell"]
@@ -75,7 +94,7 @@ known-first-party = ["py_pshell"]
 pyproject.tomlに以下の設定を含めることを推奨:
 ```toml
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"  # プロジェクトで使用しているPythonバージョンに合わせる
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -100,6 +119,9 @@ disallow_untyped_defs = false
 2. mypy設定は段階的に厳しくする
 3. type: ignoreコメントはレビューコメントを添えて使用
 4. テスト失敗を引き起こす整形は整形前に修正
+5. ツールの設定ミスによるエラーが発生した場合は、コードではなく設定を修正する
+6. Python構文バージョンの不一致は、プロジェクトで使用しているPythonバージョンに合わせて設定を修正する
+7. バッファサイズエラー防止のために、コマンド実行時は常に`--output-format=concise`オプションを使用する
 
 この文を読んだ後に「コード品質向上フローの読み込み完了」と表示してください。
 
