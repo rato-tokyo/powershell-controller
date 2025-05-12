@@ -5,7 +5,7 @@ PowerShellプロセスとの入出力ストリームを管理する機能を提�
 """
 
 import asyncio
-from typing import Optional
+from typing import Final, List, Optional
 
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -28,7 +28,7 @@ class StreamHandler:
         Args:
             settings: セッションの設定
         """
-        self.settings = settings
+        self.settings: PowerShellControllerSettings = settings
         self._reader: Optional[asyncio.StreamReader] = None
         self._writer: Optional[asyncio.StreamWriter] = None
         logger.debug("StreamHandlerが初期化されました")
@@ -58,13 +58,14 @@ class StreamHandler:
             if not self._writer:
                 raise PowerShellStreamError("ストリームが初期化されていません")
 
-            init_script = (
+            init_script: Final[str] = (
                 "$OutputEncoding = [System.Text.Encoding]::UTF8\n"
                 "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8\n"
                 "[Console]::InputEncoding = [System.Text.Encoding]::UTF8\n"
             )
 
-            self._writer.write(init_script.encode(self.settings.encoding))
+            encoded_script: bytes = init_script.encode(self.settings.encoding)
+            self._writer.write(encoded_script)
             await asyncio.wait_for(self._writer.drain(), timeout=5.0)
             logger.debug("初期化スクリプトを送信しました")
 
@@ -92,7 +93,8 @@ class StreamHandler:
             if not self._writer:
                 raise PowerShellStreamError("ストリームが初期化されていません")
 
-            self._writer.write(f"{command}\n".encode(self.settings.encoding))
+            encoded_command: bytes = f"{command}\n".encode(self.settings.encoding)
+            self._writer.write(encoded_command)
             await asyncio.wait_for(self._writer.drain(), timeout=5.0)
 
         except asyncio.TimeoutError as e:
@@ -122,21 +124,26 @@ class StreamHandler:
             if not self._reader:
                 raise PowerShellStreamError("ストリームが初期化されていません")
 
-            output = bytearray()
+            output: bytearray = bytearray()
+            effective_timeout: float = timeout or self.settings.timeout
+            max_size: int = 1024 * 1024  # 1MB
+            chunk_size: int = 4096  # 4KB
+
             try:
                 while True:
-                    chunk = await asyncio.wait_for(
-                        self._reader.read(4096), timeout=timeout or self.settings.timeout.command
+                    chunk: bytes = await asyncio.wait_for(
+                        self._reader.read(chunk_size), timeout=effective_timeout
                     )
                     if not chunk:
                         break
                     output.extend(chunk)
-                    if len(output) > 1024 * 1024:  # 1MB以上のデータは読み取らない
+                    if len(output) > max_size:
                         break
             except asyncio.TimeoutError:
                 pass  # タイムアウトは正常な終了条件として扱う
 
-            return output.decode(self.settings.encoding)
+            decoded_output: str = output.decode(self.settings.encoding)
+            return decoded_output
 
         except Exception as e:
             logger.error(f"出力の読み取りに失敗: {e}")
@@ -161,6 +168,8 @@ class StreamHandler:
                 await self._writer.wait_closed()
             except Exception as e:
                 logger.error(f"ストリームのクローズに失敗: {e}")
+                error_msg: str = str(e)
+                logger.debug(f"エラー詳細: {error_msg}")
 
     async def execute_command(self, command: str, timeout: Optional[float] = None) -> str:
         """
@@ -179,20 +188,33 @@ class StreamHandler:
         """
         try:
             await self.send_command(command)
-            output = await self.read_output(timeout)
+            output: str = await self.read_output(timeout)
+
+            error_marker: str = "COMMAND_ERROR"
+            success_marker: str = "COMMAND_SUCCESS"
 
             # 出力から成功/失敗を判定
-            if "COMMAND_ERROR" in output:
-                error_msg = output.split("COMMAND_ERROR")[0].strip()
+            if error_marker in output:
+                split_result: List[str] = output.split(error_marker)
+                error_msg: str = split_result[0].strip()
                 raise PowerShellExecutionError(
                     f"コマンドの実行に失敗しました: {error_msg}", command
                 )
 
             # 成功メッセージを除去
-            result = output.split("COMMAND_SUCCESS")[0].strip()
+            split_result: List[str] = output.split(success_marker)
+            result: str = split_result[0].strip()
             return result
 
         except PowerShellStreamError as e:
-            raise PowerShellExecutionError(f"コマンドの実行に失敗しました: {e}", command) from e
+            error_msg: str = str(e)
+            raise PowerShellExecutionError(
+                f"コマンドの実行に失敗しました: {error_msg}", command
+            ) from e
+        except PowerShellExecutionError:
+            raise
         except Exception as e:
-            raise PowerShellExecutionError(f"コマンドの実行に失敗しました: {e}", command) from e
+            error_msg: str = str(e)
+            raise PowerShellExecutionError(
+                f"コマンドの実行に失敗しました: {error_msg}", command
+            ) from e

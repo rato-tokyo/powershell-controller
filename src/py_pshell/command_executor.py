@@ -6,12 +6,13 @@ PowerShellコマンドの実行に関する機能を提供します。
 
 import asyncio
 import threading
-from typing import Optional
+import time
+from typing import Optional, Union
 
 from loguru import logger
 
-from .config import PowerShellControllerSettings
 from .errors import PowerShellError, PowerShellExecutionError
+from .interfaces import CommandResultProtocol, SessionProtocol
 from .session import PowerShellSession
 from .utils.command_result import CommandResult
 
@@ -23,71 +24,120 @@ class CommandExecutor:
     コマンドの実行に関する機能を提供します。
     """
 
-    def __init__(self, settings: PowerShellControllerSettings):
+    def __init__(self, session: Union[PowerShellSession, SessionProtocol]):
         """
         コマンド実行クラスを初期化します。
 
         Args:
-            settings: コントローラーの設定
+            session: PowerShellセッション
         """
-        self.settings = settings
+        self._session: Union[PowerShellSession, SessionProtocol] = session
         self._loop: Optional[asyncio.AbstractEventLoop] = None
-        self._lock = threading.RLock()
+        self._lock: threading.RLock = threading.RLock()
         logger.debug("CommandExecutorが初期化されました")
 
     async def run_command(
-        self, session: PowerShellSession, command: str, timeout: Optional[float] = None
-    ) -> CommandResult:
+        self, command: str, timeout: Optional[float] = None
+    ) -> CommandResultProtocol:
         """
         PowerShellコマンドを実行します。
 
         Args:
-            session: PowerShellセッション
             command: 実行するPowerShellコマンド
             timeout: コマンド実行のタイムアウト（秒）
 
         Returns:
-            CommandResult: コマンドの実行結果
-        """
-        import time
+            CommandResultProtocol: コマンドの実行結果
 
-        start_time = time.time()
+        Raises:
+            PowerShellExecutionError: コマンドの実行に失敗した場合
+        """
+        start_time: float = time.time()
         try:
-            output = await session.execute(command, timeout)
-            elapsed = time.time() - start_time
+            output: str = await self._session.execute(command, timeout)
+            execution_time: float = time.time() - start_time
 
-            return CommandResult(
-                output=output, error="", success=True, command=command, execution_time=elapsed
+            result: CommandResultProtocol = CommandResult(
+                output=output,
+                error="",
+                success=True,
+                command=command,
+                execution_time=execution_time,
             )
+            return result
+
         except PowerShellError as e:
-            elapsed = time.time() - start_time
-            return CommandResult(
-                output="", error=str(e), success=False, command=command, execution_time=elapsed
-            )
+            execution_time: float = time.time() - start_time
+            error_message: str = str(e)
+            logger.error(f"コマンドの実行に失敗しました: {error_message}")
 
-    async def execute_command(
-        self, session: PowerShellSession, command: str, timeout: Optional[float] = None
-    ) -> str:
+            result: CommandResultProtocol = CommandResult(
+                output="",
+                error=error_message,
+                success=False,
+                command=command,
+                execution_time=execution_time,
+            )
+            return result
+
+        except Exception as e:
+            execution_time: float = time.time() - start_time
+            error_message: str = str(e)
+            logger.error(f"予期しないエラーが発生しました: {error_message}")
+
+            result: CommandResultProtocol = CommandResult(
+                output="",
+                error=f"予期しないエラー: {error_message}",
+                success=False,
+                command=command,
+                execution_time=execution_time,
+            )
+            return result
+
+    async def run_script(
+        self, script: str, timeout: Optional[float] = None
+    ) -> CommandResultProtocol:
         """
-        PowerShellコマンドを実行します。
+        PowerShellスクリプトを実行します。
 
         Args:
-            session: PowerShellセッション
+            script: 実行するスクリプト
+            timeout: タイムアウト時間（秒）
+
+        Returns:
+            CommandResultProtocol: スクリプトの実行結果
+
+        Raises:
+            PowerShellExecutionError: スクリプトの実行に失敗した場合
+        """
+        # スクリプト実行はコマンド実行と同じ処理を行う
+        script_result: CommandResultProtocol = await self.run_command(script, timeout)
+        return script_result
+
+    async def execute_command(self, command: str, timeout: Optional[float] = None) -> str:
+        """
+        PowerShellコマンドを実行し、文字列結果を返します。
+
+        Args:
             command: 実行するPowerShellコマンド
             timeout: コマンド実行のタイムアウト（秒）
 
         Returns:
-            str: コマンドの実行結果
+            str: コマンドの実行結果（文字列）
 
         Raises:
             PowerShellExecutionError: コマンドの実行に失敗した場合
         """
         try:
-            timeout_value = timeout or self.settings.timeout.command
-            return await session.execute(command, timeout_value)
+            effective_timeout: Optional[float] = timeout
+            result: str = await self._session.execute(command, effective_timeout)
+            return result
         except Exception as e:
-            logger.error(f"PowerShellコマンドの実行に失敗: {e}")
-            raise PowerShellExecutionError(f"コマンド実行中にエラーが発生しました: {e}") from e
+            error_message: str = str(e)
+            logger.error(f"PowerShellコマンドの実行に失敗: {error_message}")
+            raise PowerShellExecutionError(
+                f"コマンド実行中にエラーが発生しました: {error_message}"
+            ) from e
 
     def _get_or_create_loop(self) -> asyncio.AbstractEventLoop:
         """
@@ -109,7 +159,7 @@ class CommandExecutor:
                     self._loop = asyncio.new_event_loop()
 
                 # ループを別スレッドで実行
-                thread = threading.Thread(
+                thread: threading.Thread = threading.Thread(
                     target=self._run_event_loop, args=(self._loop,), daemon=True
                 )
                 thread.start()

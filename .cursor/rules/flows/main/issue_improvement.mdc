@@ -12,17 +12,17 @@ alwaysApply: false
 課題改善フローを実行するには、以下のMDCファイルを順に参照してください：
 
 1. **基本ファイル**:
-   - [main.mdc](mdc:.cursor/rules/main.mdc): プロジェクトの基本方針
-   - [flow_overview.mdc](mdc:.cursor/rules/flow_overview.mdc): フローの全体像
+   - [main.mdc](mdc:../main.mdc): プロジェクトの基本方針
+   - [flow_overview.mdc](mdc:../flow_overview.mdc): フローの全体像
 
 2. **フェーズファイル（フェーズごとに参照）**:
-   - [refactor.mdc](mdc:.cursor/rules/phases/refactor.mdc): コード改善
-   - [green.mdc](mdc:.cursor/rules/phases/green.mdc): テスト確認
-   - [document.mdc](mdc:.cursor/rules/phases/document.mdc): ドキュメント更新
+   - [refactor.mdc](mdc:../phases/refactor.mdc): コード改善
+   - [green.mdc](mdc:../phases/green.mdc): テスト確認
+   - [document.mdc](mdc:../phases/document.mdc): ドキュメント更新
 
 3. **サポートファイル（必要に応じて参照）**:
-   - [code_quality.mdc](mdc:.cursor/rules/code_quality.mdc): 品質向上時
-   - [python_test.mdc](mdc:.cursor/rules/python_test.mdc): テスト確認時
+   - [code_quality.mdc](mdc:../code_quality.mdc): 品質向上時
+   - [python_test.mdc](mdc:../python_test.mdc): テスト確認時
 
 ## 参照方法
 ```
@@ -52,4 +52,5 @@ alwaysApply: false
 3. ユーザーに次の作業の指示を求める
 
 この文を読んだ後に「課題改善フローテンプレートの読み込み完了」と表示してください。
+
 

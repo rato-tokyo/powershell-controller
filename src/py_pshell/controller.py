@@ -5,7 +5,8 @@ PowerShellコマンドの実行を制御するクラスを提供します。
 """
 
 import asyncio
-from typing import Any, Dict, Optional
+import json
+from typing import Any, Dict, Optional, TypeVar
 
 from loguru import logger
 
@@ -21,6 +22,8 @@ from py_pshell.interfaces import (
 )
 from py_pshell.utils.command_executor import CommandExecutor
 
+T = TypeVar("T")
+
 
 class PowerShellController(PowerShellControllerProtocol):
     """PowerShellコントローラー
@@ -35,10 +38,10 @@ class PowerShellController(PowerShellControllerProtocol):
         Args:
             settings: コントローラーの設定
         """
-        self._settings = settings or PowerShellControllerSettings()
-        self._session = None
-        self._command_executor = None
-        self._loop = None
+        self._settings: PowerShellControllerSettings = settings or PowerShellControllerSettings()
+        self._session: Optional[Any] = None
+        self._command_executor: Optional[CommandExecutor] = None
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
 
     async def __aenter__(self) -> "PowerShellController":
         """非同期コンテキストマネージャーのエントリーポイント
@@ -49,7 +52,9 @@ class PowerShellController(PowerShellControllerProtocol):
         await self.start()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self, exc_type: Optional[type], exc_val: Optional[Exception], exc_tb: Optional[Any]
+    ) -> None:
         """非同期コンテキストマネージャーのエグジットポイント
 
         Args:
@@ -102,12 +107,15 @@ class PowerShellController(PowerShellControllerProtocol):
         if self._session:
             try:
                 # 既存のイベントループを取得
-                loop = asyncio.get_event_loop()
+                loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
                 if loop.is_running():
                     # イベントループが実行中の場合は、非同期タスクを作成して実行
-                    future = asyncio.run_coroutine_threadsafe(self.close(), loop)
+                    future: asyncio.Future[None] = asyncio.run_coroutine_threadsafe(
+                        self.close(), loop
+                    )
                     # 完了を待機（タイムアウトを設定）
-                    future.result(timeout=self._settings.timeout_settings.shutdown)
+                    timeout_value: float = self._settings.timeout
+                    future.result(timeout=timeout_value)
                 else:
                     # イベントループが実行中でない場合は、同期的に実行
                     loop.run_until_complete(self.close())
@@ -135,7 +143,7 @@ class PowerShellController(PowerShellControllerProtocol):
             raise PowerShellExecutionError("セッションが開始されていません")
 
         try:
-            result = await self._session.execute(command, timeout)
+            result: str = await self._session.execute(command, timeout)
             logger.debug(f"コマンドを実行しました: {command}")
             return result
         except Exception as e:
@@ -161,7 +169,9 @@ class PowerShellController(PowerShellControllerProtocol):
             raise PowerShellExecutionError("セッションが開始されていません")
 
         try:
-            result = await self._command_executor.run_command(command, timeout)
+            result: CommandResultProtocol = await self._command_executor.run_command(
+                command, timeout
+            )
             logger.debug(f"コマンドを実行しました: {command}")
             return result
         except Exception as e:
@@ -187,7 +197,7 @@ class PowerShellController(PowerShellControllerProtocol):
             raise PowerShellExecutionError("セッションが開始されていません")
 
         try:
-            result = await self._command_executor.run_script(script, timeout)
+            result: CommandResultProtocol = await self._command_executor.run_script(script, timeout)
             logger.debug("スクリプトを実行しました")
             return result
         except Exception as e:
@@ -211,7 +221,7 @@ class PowerShellController(PowerShellControllerProtocol):
             raise PowerShellExecutionError("セッションが開始されていません")
 
         try:
-            result = await self._session.execute(command, timeout)
+            result: str = await self._session.execute(command, timeout)
             logger.debug(f"JSONを取得しました: {command}")
             return self._parse_json(result)
         except Exception as e:
@@ -247,9 +257,11 @@ class PowerShellController(PowerShellControllerProtocol):
             PowerShellExecutionError: JSONのパースに失敗した場合
         """
         try:
-            import json
-
-            return json.loads(json_str)
+            # 文字列の前後の空白を削除
+            json_str = json_str.strip()
+            # JSONをパース
+            result: Dict[str, Any] = json.loads(json_str)
+            return result
         except Exception as e:
             logger.error(f"JSONのパースに失敗しました: {e}")
             raise PowerShellExecutionError(f"JSONのパースに失敗しました: {e}") from e

@@ -6,7 +6,8 @@ import asyncio
 import os
 import re
 import sys
-from typing import AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

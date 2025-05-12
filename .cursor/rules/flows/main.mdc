@@ -1,0 +1,98 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# プロジェクトルール（Main）
+
+## 開発環境
+- Windows 11
+- PowerShell 7
+
+## 基本方針
+マニュアル参照方式を採用します。以前使用していたRAIL方針からの移行途中です。
+- マニュアル参照方式: [manual_reference.mdc](mdc:../docs/manual_reference.mdc)
+- 過去の方針（参考）:
+  - RAIL方針: [rail.mdc](mdc:../docs/rail.mdc)
+  - flow-phase方針: [flow-phase.mdc](mdc:../docs/flow_phase.mdc)
+
+## プロジェクトルールの参照ガイド
+必要に応じて以下のルールを手動で参照してください。参照が必要な場合は「[参照MDC: ファイル名]」の形式でリクエストします。
+
+### 新規セッション
+- 新規セッション開始直後: [init.mdc](mdc:../docs/init.mdc)
+
+### フロー概要
+- フローの全体像: [flow_overview.mdc](mdc:../docs/flow_overview.mdc)
+- フロー実行ガイド: [flow_execution.mdc](mdc:../docs/flow_execution.mdc)
+
+### フローテンプレート
+- 仕様変更フロー: [requirements_change.mdc](mdc:main/requirements_change.mdc)
+- 課題改善フロー: [issue_improvement.mdc](mdc:main/issue_improvement.mdc)
+
+### 環境設定
+- 開発環境のセットアップ: [environment.mdc](mdc:../docs/environment.mdc)
+
+### テスト規約
+- Pythonテストのルール: [python_test.mdc](mdc:../docs/python_test.mdc)
+
+### コード品質
+- コード品質向上フロー: [code_quality.mdc](mdc:main/code_quality.mdc)
+- MDC整合性確認フロー: [mdc_check.mdc](mdc:main/mdc_check.mdc)
+
+### 仕様変更フロー
+1. contract phase: [contract.mdc](mdc:phases/contract.mdc)
+2. red phase: [red.mdc](mdc:phases/red.mdc)
+3. green phase: [green.mdc](mdc:phases/green.mdc)
+4. document phase: [document.mdc](mdc:phases/document.mdc)
+
+### 課題改善フロー
+1. refactor phase: [refactor.mdc](mdc:phases/refactor.mdc)
+2. green phase: [green.mdc](mdc:phases/green.mdc)
+3. document phase: [document.mdc](mdc:phases/document.mdc)
+
+## 実行可能なフローMDC
+チャットでコンテキストとして添付し、フローとして実行させることができるMDCファイルは以下の通りです。
+これらのファイルは `<required_instructions>` タグで囲んで添付できます：
+
+### メインフロー（完全なフロー）
+- [requirements_change.mdc](mdc:main/requirements_change.mdc): 仕様変更フロー
+- [issue_improvement.mdc](mdc:main/issue_improvement.mdc): 課題改善フロー
+- [code_quality.mdc](mdc:main/code_quality.mdc): コード品質向上フロー
+- [mdc_check.mdc](mdc:main/mdc_check.mdc): MDC整合性確認フロー
+
+### 個別フェーズ（部分的なフロー）
+- [contract.mdc](mdc:phases/contract.mdc): 契約フェーズ
+- [red.mdc](mdc:phases/red.mdc): テスト作成フェーズ
+- [green.mdc](mdc:phases/green.mdc): 実装フェーズ
+- [document.mdc](mdc:phases/document.mdc): ドキュメントフェーズ
+- [refactor.mdc](mdc:phases/refactor.mdc): リファクタリングフェーズ
+
+### 基本設定（常時必要）
+- [main.mdc](mdc:main.mdc): 基本ルール（常に最初に添付）
+
+### フロー実行方法の詳細
+フローMDCの添付方法と実行方法の詳細については、[flow_execution.mdc](mdc:../docs/flow_execution.mdc)を参照してください。
+
+## 特記事項
+- ユーザからの個別指示がある場合は、そちらを優先してください
+- 各フェーズの開始時・終了時には必ず宣言を行ってください
+- プロジェクトの課題一覧は[issues.md](mdc:../../issues.md)を参照してください
+
+## 関連MDC
+特定のフローを開始する場合、以下のフローテンプレートを参照してください：
+
+### 仕様変更フロー開始時
+- [requirements_change.mdc](mdc:main/requirements_change.mdc)
+
+### 課題改善フロー開始時
+- [issue_improvement.mdc](mdc:main/issue_improvement.mdc)
+
+### コード品質向上時
+- [code_quality.mdc](mdc:main/code_quality.mdc)
+
+### MDC整合性確認時
+- [mdc_check.mdc](mdc:main/mdc_check.mdc)
+
+この文を読んだ後に「main.mdcの読み込み完了」と表示してください。
+

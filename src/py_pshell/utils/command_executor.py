@@ -5,7 +5,7 @@ PowerShellコマンドの実行を管理するクラスを提供します。
 """
 
 import time
-from typing import Optional
+from typing import Any, Optional
 
 from loguru import logger
 
@@ -19,13 +19,13 @@ class CommandExecutor:
     PowerShellコマンドの実行を管理するクラスです。
     """
 
-    def __init__(self, session):
+    def __init__(self, session: Any):
         """初期化
 
         Args:
             session: PowerShellセッション
         """
-        self._session = session
+        self._session: Any = session
 
     async def run_command(
         self, command: str, timeout: Optional[float] = None
@@ -42,10 +42,10 @@ class CommandExecutor:
         Raises:
             PowerShellExecutionError: コマンドの実行に失敗した場合
         """
-        start_time = time.time()
+        start_time: float = time.time()
         try:
-            output = await self._session.execute(command, timeout)
-            execution_time = time.time() - start_time
+            output: str = await self._session.execute(command, timeout)
+            execution_time: float = time.time() - start_time
             return CommandResult(
                 output=output,
                 error="",
@@ -54,7 +54,7 @@ class CommandExecutor:
                 execution_time=execution_time,
             )
         except Exception as e:
-            execution_time = time.time() - start_time
+            execution_time: float = time.time() - start_time
             logger.error(f"コマンドの実行に失敗しました: {e}")
             return CommandResult(
                 output="",

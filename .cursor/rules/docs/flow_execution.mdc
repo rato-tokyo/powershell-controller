@@ -1,0 +1,119 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# フロー実行ガイド（Flow Execution）
+
+## 概要
+このドキュメントでは、MDCファイルをチャットコンテキストとして添付し、特定のフローを実行させる方法について説明します。
+
+## フロー実行の基本
+
+### フローMDCとは
+フローMDCとは、AIに特定のワークフローに従って作業を進めさせるための指示が記載されたMDCファイルです。これらのファイルは、開発プロセスの特定フェーズや一連の作業を体系化しています。
+
+### 実行可能なフローMDC
+以下のMDCファイルは、実行可能なフローとして設計されており、チャットに添付することでAIに一連の作業を実行させることができます：
+
+#### メインフロー（完全なフロー）
+- **requirements_change.mdc**: 仕様変更を行うための完全なフロー（`flows/main/requirements_change.mdc`）
+- **issue_improvement.mdc**: 既存の課題を改善するための完全なフロー（`flows/main/issue_improvement.mdc`）
+- **code_quality.mdc**: コード品質向上のための専用フロー（`flows/main/code_quality.mdc`）
+- **mdc_check.mdc**: MDCファイルの整合性を確認するためのフロー（`flows/main/mdc_check.mdc`）
+
+#### 個別フェーズ（部分的なフロー）
+- **contract.mdc**: インターフェース設計のフェーズ（`flows/phases/contract.mdc`）
+- **red.mdc**: テスト作成のフェーズ（`flows/phases/red.mdc`）
+- **green.mdc**: 実装のフェーズ（`flows/phases/green.mdc`）
+- **document.mdc**: ドキュメント更新のフェーズ（`flows/phases/document.mdc`）
+- **refactor.mdc**: コード改善のフェーズ（`flows/phases/refactor.mdc`）
+
+#### 基本設定（常時必要）
+- **main.mdc**: 基本ルール（常に最初に添付）（`flows/main.mdc`）
+
+## ディレクトリ構造
+
+実行可能なフローMDCファイルは以下のディレクトリ構造で管理されています：
+
+```
+.cursor/rules/
+├── flows/
+│   ├── main/
+│   │   ├── requirements_change.mdc
+│   │   ├── issue_improvement.mdc
+│   │   ├── code_quality.mdc
+│   │   └── mdc_check.mdc
+│   ├── phases/
+│   │   ├── contract.mdc
+│   │   ├── red.mdc
+│   │   ├── green.mdc
+│   │   ├── document.mdc
+│   │   └── refactor.mdc
+│   └── main.mdc
+└── docs/
+    ├── flow_execution.mdc
+    ├── flow_overview.mdc
+    ├── init.mdc
+    ├── python_test.mdc
+    ├── environment.mdc
+    ├── main.mdc
+    └── ...
+```
+
+## フローMDCの添付方法
+
+### 基本構文
+実行可能なフローMDCを添付するには、以下の構文を使用します：
+
+```
+<custom_instructions>
+<required_instructions>
+[MDCファイルの内容]
+</required_instructions>
+</custom_instructions>
+```
+
+### 複数のMDCファイル添付
+複数のMDCファイルを添付する場合は、main.mdcを最初に添付し、その後に具体的なフローMDCを添付してください：
+
+```
+<custom_instructions>
+<required_instructions>
+[main.mdcの内容]
+
+[フローMDCの内容]
+</required_instructions>
+</custom_instructions>
+```
+
+## フロー実行の例
+
+### 仕様変更フローの実行例
+仕様変更フローを実行するには、以下のようにmain.mdcとrequirements_change.mdcを添付します：
+
+1. `.cursor/rules/flows/main.mdc`を取得
+2. `.cursor/rules/flows/main/requirements_change.mdc`を取得
+3. 両方をカスタム指示として添付
+
+### 課題改善フローの実行例
+課題改善フローを実行するには、以下のようにmain.mdcとissue_improvement.mdcを添付します：
+
+1. `.cursor/rules/flows/main.mdc`を取得
+2. `.cursor/rules/flows/main/issue_improvement.mdc`を取得
+3. 両方をカスタム指示として添付
+
+## フロー実行時の注意点
+
+### ベストプラクティス
+- フローMDCを添付する前に、main.mdcを常に添付してください
+- フローの途中で別のフェーズに移行する場合は、関連するMDCを明示的に参照してください
+- フェーズの開始と終了には必ず宣言を行ってください
+
+### 効率的な使用方法
+- 特定の作業にのみ取り組む場合は、個別フェーズのMDCのみを添付する
+- 長時間のセッションでは、必要に応じてMDCを追加で参照する
+- 進行中のフローに関連する具体的な指示がある場合は、それを優先する
+
+この文を読んだ後に「フロー実行ガイドの読み込み完了」と表示してください。
+

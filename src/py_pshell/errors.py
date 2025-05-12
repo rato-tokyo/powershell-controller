@@ -18,20 +18,16 @@ class PowerShellError(Exception):
     """PowerShellエラーの基底クラス"""
 
 
-
 class PowerShellStartupError(PowerShellError):
     """セッション開始エラー"""
-
 
 
 class PowerShellShutdownError(PowerShellError):
     """セッション終了エラー"""
 
 
-
 class PowerShellExecutionError(PowerShellError):
     """コマンド実行エラー"""
-
 
 
 class PowerShellTimeoutError(PowerShellError):
