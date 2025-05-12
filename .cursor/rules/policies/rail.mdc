@@ -1,0 +1,12 @@
+---
+description: RAIL方針の理解が曖昧な場合に確認するルール
+globs: 
+alwaysApply: false
+---
+#### 概要
+RAIL(Rule-Aware Incremental Loading)方針とは、あなた（AI）がまずmain.mdcを読んで、必要に応じてsub.mdcなどの個別ルールを段階的に読み込む方針のことです。
+#### 目的
+状況に応じて読み込むべき*.mdcファイルをあなた（AI）に選ばせ、最小限のプロジェクトルールの注入にとどめることで、コンテキスト制限を超えないようにし、ルールの不履行を防ぐことを目的としています。
+#### 構成
+main.mdcとサブMDC（main.mdc以外の*.mdcファイル）で構成されています。main.mdcにはサブMDCへの案内が記載されていて、あなた（AI）は常にこの案内に従ってサブMDCを読み込まなければなりません。そのため、main.mdcはサブMDCとは違い、alwaysApply: trueが設定されています。
+

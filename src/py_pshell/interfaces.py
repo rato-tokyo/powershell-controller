@@ -1,140 +1,90 @@
 """
-PowerShellコントローラーインターフェース
+インターフェースモジュール
 
-PowerShellを操作するためのインターフェース定義を提供します。
-テストやモック作成を容易にするためのプロトコル定義です。
+PowerShellコントローラーで使用するインターフェースを定義します。
 """
+from typing import Any, Dict, Optional, Protocol, runtime_checkable
+from pydantic import BaseModel
 
-from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Union
 
-class CommandResultProtocol(ABC):
-    """
-    PowerShellコマンド実行結果のプロトコル
-    """
+@runtime_checkable
+class CommandResultProtocol(Protocol):
+    """コマンド結果プロトコル"""
+
     @property
-    @abstractmethod
     def output(self) -> str:
-        """コマンドの標準出力"""
-        pass
-        
+        """コマンドの出力"""
+        ...
+
     @property
-    @abstractmethod
     def error(self) -> str:
-        """コマンドの標準エラー出力"""
-        pass
-        
+        """エラーメッセージ"""
+        ...
+
     @property
-    @abstractmethod
     def success(self) -> bool:
-        """コマンドが成功したかどうか"""
-        pass
-        
+        """実行の成功/失敗"""
+        ...
+
     @property
-    @abstractmethod
     def command(self) -> str:
         """実行されたコマンド"""
-        pass
-        
+        ...
+
     @property
-    @abstractmethod
     def execution_time(self) -> float:
         """実行時間（秒）"""
-        pass
-        
-    @abstractmethod
-    def to_dict(self) -> Dict[str, Any]:
-        """辞書形式で結果を返す"""
-        pass
+        ...
 
-class PowerShellControllerProtocol(ABC):
-    """
-    PowerShellコントローラーのプロトコル
-    
-    PowerShellコマンドを実行するためのインターフェースを定義します。
-    テストやモックの作成を容易にするための抽象クラスです。
-    """
-    
-    @abstractmethod
-    async def run_command(self, command: str, timeout: Optional[float] = None) -> CommandResultProtocol:
-        """
-        PowerShellコマンドを非同期で実行します。
-        
-        Args:
-            command: 実行するPowerShellコマンド
-            timeout: コマンド実行のタイムアウト（秒）
-            
-        Returns:
-            CommandResultProtocol: コマンドの実行結果
-        """
-        pass
-    
-    @abstractmethod
-    async def run_script(self, script: str, timeout: Optional[float] = None) -> CommandResultProtocol:
-        """
-        PowerShellスクリプトを非同期で実行します。
-        
-        Args:
-            script: 実行するPowerShellスクリプト
-            timeout: スクリプト実行のタイムアウト（秒）
-            
-        Returns:
-            CommandResultProtocol: スクリプトの実行結果
-        """
-        pass
-    
-    @abstractmethod
-    def execute_command(self, command: str, timeout: Optional[float] = None) -> str:
-        """
-        PowerShellコマンドを同期的に実行します。
-        
-        Args:
-            command: 実行するPowerShellコマンド
-            timeout: コマンド実行のタイムアウト（秒）
-            
-        Returns:
-            str: コマンドの実行結果
-        """
-        pass
-    
-    @abstractmethod
-    def execute_script(self, script: str, timeout: Optional[float] = None) -> str:
-        """
-        PowerShellスクリプトを実行します。
-        
-        Args:
-            script: 実行するPowerShellスクリプト
-            timeout: スクリプト実行のタイムアウト（秒）
-            
-        Returns:
-            str: スクリプトの実行結果
-        """
-        pass
-    
-    @abstractmethod
-    def get_json(self, command: str, timeout: Optional[float] = None) -> Dict[str, Any]:
-        """
-        PowerShellコマンドを実行し、結果をJSON形式で解析して返します。
-        
-        Args:
-            command: 実行するPowerShellコマンド
-            timeout: コマンド実行のタイムアウト（秒）
-            
-        Returns:
-            Dict[str, Any]: JSONデータを解析した辞書
-        """
-        pass
-    
-    @abstractmethod
+    def to_dict(self) -> Dict[str, Any]:
+        """辞書形式に変換"""
+        ...
+
+
+class PowerShellControllerSettings(BaseModel):
+    """PowerShellコントローラーの設定"""
+
+    timeout: float = 30.0
+    max_retries: int = 3
+    retry_delay: float = 1.0
+
+
+@runtime_checkable
+class PowerShellControllerProtocol(Protocol):
+    """PowerShellコントローラープロトコル"""
+
+    async def __aenter__(self) -> "PowerShellControllerProtocol":
+        """非同期コンテキストマネージャーのエントリーポイント"""
+        ...
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """非同期コンテキストマネージャーのエグジットポイント"""
+        ...
+
+    async def start(self) -> None:
+        """セッションを開始"""
+        ...
+
     async def close(self) -> None:
-        """
-        PowerShellセッションを閉じます。
-        """
-        pass
-    
-    @abstractmethod
+        """セッションを終了"""
+        ...
+
     def close_sync(self) -> None:
-        """
-        PowerShellセッションを同期的に閉じます。
-        """
-        pass
+        """セッションを同期的に終了"""
+        ...
+
+    async def execute_command(self, command: str, timeout: Optional[float] = None) -> str:
+        """コマンドを実行"""
+        ...
+
+    async def run_command(self, command: str, timeout: Optional[float] = None) -> CommandResultProtocol:
+        """コマンドを実行し、結果を返す"""
+        ...
+
+    async def run_script(self, script: str, timeout: Optional[float] = None) -> CommandResultProtocol:
+        """スクリプトを実行し、結果を返す"""
+        ...
+
+    async def get_json(self, command: str, timeout: Optional[float] = None) -> Dict[str, Any]:
+        """コマンドを実行し、結果をJSONとして返す"""
+        ...

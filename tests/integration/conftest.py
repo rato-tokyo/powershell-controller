@@ -15,7 +15,7 @@ import pytest
 import pytest_asyncio
 from loguru import logger
 
-from py_pshell.config import PowerShellControllerSettings
+from py_pshell.config import PowerShellControllerSettings, PowerShellTimeoutSettings
 from py_pshell.controller import PowerShellController
 from py_pshell.utils.command_result import CommandResult
 from py_pshell.errors import (
@@ -46,7 +46,7 @@ def event_loop_policy():
 def session_config() -> PowerShellControllerSettings:
     """テスト用のPowerShellセッション設定を提供します。"""
     # デフォルト設定を使用するが、タイムアウトは短くしてテストを高速化
-    timeout_settings = PowerShellControllerSettings.TimeoutSettings(
+    timeout_settings = PowerShellTimeoutSettings(
         startup=5.0,  # 起動タイムアウト
         shutdown=2.0,  # シャットダウンタイムアウト
         default=2.0,   # デフォルトのコマンドタイムアウト

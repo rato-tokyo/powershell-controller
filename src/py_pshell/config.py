@@ -3,68 +3,65 @@ PowerShellコントローラーの設定クラス
 
 このモジュールはPowerShellコントローラーの設定クラスを提供します。
 """
-import os
-import sys
-import platform
-from typing import Dict, Optional, List, Union, Any
+from pathlib import Path
+from typing import List
+
 from pydantic import BaseModel, Field
 
+
+class PowerShellTimeoutSettings(BaseModel):
+    """
+    PowerShellのタイムアウト設定
+
+    Attributes:
+        startup: 起動時のタイムアウト（秒）
+        command: コマンド実行のタイムアウト（秒）
+        shutdown: 終了時のタイムアウト（秒）
+    """
+    startup: float = Field(default=30.0, description="起動タイムアウト（秒）")
+    shutdown: float = Field(default=10.0, description="シャットダウンタイムアウト（秒）")
+    default: float = Field(default=30.0, description="デフォルトのコマンドタイムアウト（秒）")
+
+
 class PowerShellControllerSettings(BaseModel):
-    """PowerShellコントローラーの設定"""
-    
-    # インナークラス定義
-    class TimeoutSettings(BaseModel):
-        """タイムアウト設定"""
-        default: float = Field(default=30.0, description="デフォルトのタイムアウト時間（秒）")
-        startup: float = Field(default=10.0, description="プロセス起動用のタイムアウト（秒）")
-        shutdown: float = Field(default=5.0, description="シャットダウン用のタイムアウト（秒）")
-    
-    # PowerShellの実行パス
-    powershell_executable: str = Field(
-        default="powershell" if platform.system().lower() == "windows" else "pwsh",
-        description="PowerShellの実行パス"
-    )
-    
-    # タイムアウト設定
-    timeout: TimeoutSettings = Field(
-        default_factory=TimeoutSettings,
+    """
+    PowerShellコントローラーの設定
+
+    Attributes:
+        powershell_path: PowerShell実行ファイルのパス
+        powershell_args: PowerShellコマンドライン引数
+        encoding: 文字エンコーディング
+        hide_window: PowerShellウィンドウを非表示にするかどうか
+        timeout: タイムアウト設定
+    """
+    powershell_path: Path = Field(default=Path("powershell.exe"), description="PowerShell実行ファイルのパス")
+    powershell_args: List[str] = Field(default_factory=lambda: ["-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass"], description="PowerShellコマンドライン引数")
+    encoding: str = Field(default="utf-8", description="文字エンコーディング")
+    hide_window: bool = Field(default=True, description="PowerShellウィンドウを非表示にするかどうか")
+    timeout_settings: PowerShellTimeoutSettings = Field(
+        default_factory=PowerShellTimeoutSettings,
         description="タイムアウト設定"
     )
-    
-    # エンコーディング
-    encoding: str = Field(
-        default="utf-8",
-        description="PowerShellプロセスとの通信に使用するエンコーディング"
-    )
-    
+    max_retries: int = Field(default=3, description="最大リトライ回数")
+    retry_delay: float = Field(default=1.0, description="リトライ間隔（秒）")
+
     # デバッグモード
     debug: bool = Field(
         default=False,
         description="デバッグモードを有効にするかどうか"
     )
-    
+
     # カスタムホストを使用するかどうか
     use_custom_host: bool = Field(
         default=True,
         description="カスタムホストを使用するかどうか"
     )
-    
-    # PowerShellコマンドライン引数
-    arguments: List[str] = Field(
-        default_factory=lambda: [
-            "-NoProfile", 
-            "-ExecutionPolicy", "Bypass",
-            "-NoLogo",
-            "-NonInteractive"
-        ],
-        description="PowerShell実行時の引数"
-    )
-    
+
     def get_command_args(self) -> List[str]:
         """
         PowerShellコマンドライン引数を取得します。
-        
+
         Returns:
             List[str]: コマンドライン引数のリスト
         """
-        return [self.powershell_executable] + self.arguments 
+        return [str(self.powershell_path)] + self.powershell_args

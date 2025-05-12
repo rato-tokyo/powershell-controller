@@ -1,0 +1,29 @@
+---
+description: どんな場合でも必ず適用するルール
+globs: 
+alwaysApply: true
+---
+## 開発環境
+- Windows 11
+- PowerShell 7
+
+## 基本方針
+RAIL方針とflow-phase方針を採用します。
+- RAIL方針の理解が曖昧な場合：[rail.mdc](mdc:.cursor/rules/policies/rail.mdc)を読み、ここに戻ってください。
+- flow-phase方針の理解が曖昧な場合：[flow-phase.mdc](mdc:.cursor/rules/policies/flow-phase.mdc)を読み、ここに戻ってください。
+
+## プロジェクトルールの案内
+- 新規セッション開始直後の場合：[init.mdc](mdc:.cursor/rules/init.mdc)
+- 「仕様変更flow」または「課題改善flow」の理解が曖昧な場合：[flow_overview.mdc](mdc:.cursor/rules/flow_overview.mdc)を読み、ここに戻ってください。
+- 「仕様変更flow」で
+   1. 「contract phase」実施中の場合：[contract.mdc](mdc:.cursor/rules/phases/contract.mdc)
+   2. 「red phase」実施中の場合：[red.mdc](mdc:.cursor/rules/phases/red.mdc)
+   3. 「green phase」実施中の場合：[green.mdc](mdc:.cursor/rules/phases/green.mdc)
+   4. 「document phase」実施中の場合：[document.mdc](mdc:.cursor/rules/phases/document.mdc)
+- 「課題改善flow」で
+   1. 「refactor phase」実施中の場合：[refactor.mdc](mdc:.cursor/rules/phases/refactor.mdc)
+   2. 「green phase」実施中の場合：[green.mdc](mdc:.cursor/rules/phases/green.mdc)
+   3. 「document phase」実施中の場合：[document.mdc](mdc:.cursor/rules/phases/document.mdc)
+- ユーザから個別に指示があった場合：その指示に従って作業を進めてください。
+
+この文を読んだ後に「main.mdcの読み込み完了」と表示してください。

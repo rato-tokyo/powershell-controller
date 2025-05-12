@@ -3,11 +3,9 @@ PowerShellセッションユーティリティモジュール
 
 PowerShellセッションに必要なユーティリティ関数を提供します。
 """
-import os
 import platform
-import tempfile
-from typing import List, Dict, Any, Optional, Tuple
-from loguru import logger
+import subprocess
+from typing import List, Optional, Tuple
 
 # PowerShellの初期化スクリプト
 INIT_SCRIPT = """
@@ -55,16 +53,15 @@ function global:__ExecuteCommand {
 Write-Output "SESSION_READY"
 """
 
-def get_process_startup_info():
+def get_startup_info() -> Optional[subprocess.STARTUPINFO]:
     """
     プラットフォームに応じたプロセス起動情報を取得します。
-    
+
     Returns:
         subprocess.STARTUPINFO: Windows環境ではSTARTUPINFO、それ以外ではNone
     """
     startup_info = None
     if platform.system().lower() == "windows":
-        import subprocess
         startup_info = subprocess.STARTUPINFO()
         startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         startup_info.wShowWindow = subprocess.SW_HIDE
@@ -73,10 +70,10 @@ def get_process_startup_info():
 def prepare_command_execution(command: str) -> str:
     """
     PowerShellでコマンドを実行するための準備を行います。
-    
+
     Args:
         command: 実行するコマンド
-        
+
     Returns:
         str: 実行準備が整ったコマンド
     """
@@ -86,21 +83,21 @@ def prepare_command_execution(command: str) -> str:
 def parse_command_result(output_lines: List[str]) -> Tuple[bool, str]:
     """
     PowerShellコマンドの実行結果を解析します。
-    
+
     Args:
         output_lines: コマンド出力の行のリスト
-        
+
     Returns:
         Tuple[bool, str]: (成功したかどうか, 出力テキスト)
     """
     if not output_lines:
         return True, ""
-        
+
     # 最後の行はステータスマーカー
     status_line = output_lines[-1].strip() if output_lines else ""
     success = status_line == "COMMAND_SUCCESS"
-    
+
     # 出力テキスト（ステータスマーカーを除く）
     result_text = "\n".join(output_lines[:-1]) if len(output_lines) > 1 else ""
-    
-    return success, result_text 
+
+    return success, result_text

@@ -1,158 +1,255 @@
 """
-PowerShellコントローラーのテスト
+PowerShellコントローラーのテストモジュール
+
+PowerShellコントローラーの機能をテストします。
 """
-import pytest
 import asyncio
-import os
-import platform
+from typing import Any, Dict
+from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import patch
+
+import pytest
 from loguru import logger
+import pytest_asyncio
 
-from py_pshell.controller import PowerShellController, CommandResult
-from py_pshell.config import PowerShellControllerSettings
-from py_pshell.errors import PowerShellError, PowerShellExecutionError, PowerShellTimeoutError
+from py_pshell.controller import PowerShellController
+from py_pshell.errors import PowerShellExecutionError, PowerShellStartupError, PowerShellShutdownError
+from py_pshell.interfaces import CommandResultProtocol
+from py_pshell.utils.command_result import CommandResult
 
-# テスト環境の情報
-IS_WINDOWS = platform.system().lower() == "windows"
-IS_CI = "CI" in os.environ
-USE_MOCK = os.environ.get("POWERSHELL_TEST_MOCK", "true").lower() == "true"
 
-@pytest.fixture
-def controller(use_mock_sessions):
-    """テスト用のコントローラを作成"""
+@pytest_asyncio.fixture
+async def controller():
+    """PowerShellコントローラーのフィクスチャ"""
     controller = PowerShellController()
+    # モックの設定
+    controller._session = AsyncMock()
+    controller._session.execute = AsyncMock(return_value="Test Output")
+    controller._session.stop = AsyncMock()
+    controller._command_executor = AsyncMock()
+    controller._command_executor.run_command = AsyncMock(
+        return_value=CommandResult(
+            output="Test Output",
+            error="",
+            success=True,
+            command="Get-Process",
+            execution_time=0.1
+        )
+    )
+    await controller.start()
     yield controller
-    
-    # クリーンアップ
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(controller.close())
+    await controller.close()
+
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(30)  # テストのタイムアウトを短縮（モック使用）
-async def test_basic_command_execution(use_mock_sessions):
-    """基本的なコマンド実行テスト"""
-    controller = None
+@pytest.mark.timeout(10)
+async def test_context_manager():
+    """非同期コンテキストマネージャーのテスト"""
+    controller = PowerShellController()
+    controller._session = AsyncMock()
+    execute_mock = AsyncMock(return_value="Test Output")
+    controller._session.execute = execute_mock
+    controller._session.stop = AsyncMock()
+    
+    async with controller as ctrl:
+        assert isinstance(ctrl, PowerShellController)
+        result = await ctrl.execute_command("Get-Process")
+        assert isinstance(result, str)
+        assert result == "Test Output"
+        execute_mock.assert_awaited_once_with("Get-Process", None)
+    
+    # コンテキストマネージャーを抜けた後の状態を確認
+    assert controller._session is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(10)
+async def test_start():
+    """startメソッドのテスト"""
+    controller = PowerShellController()
+    controller._session = AsyncMock()
+    controller._session.stop = AsyncMock()
+    await controller.start()
+    assert controller._session is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(10)
+async def test_start_error():
+    """startメソッドのエラーテスト"""
+    controller = PowerShellController()
+    controller._session = None
+    with pytest.raises(PowerShellStartupError):
+        await controller.start()
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(10)
+async def test_execute_command():
+    """コマンド実行のテスト"""
+    controller = PowerShellController()
+    controller._session = AsyncMock()
+    execute_mock = AsyncMock(return_value="Test Output")
+    controller._session.execute = execute_mock
+    controller._session.stop = AsyncMock()
+    await controller.start()
+
     try:
-        controller = PowerShellController()
-        
-        # 非同期コマンド実行
-        result = await controller.run_command("Write-Output 'Hello, World!'")
-        assert result.success is True
-        assert result.output == "Hello, World!"
+        result = await controller.execute_command("Get-Process")
+        assert isinstance(result, str)
+        assert result == "Test Output"
+        execute_mock.assert_awaited_once_with("Get-Process", None)
+    finally:
+        await controller.close()
+        assert controller._session is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(10)
+async def test_run_command():
+    """run_commandのテスト"""
+    controller = PowerShellController()
+    controller._session = AsyncMock()
+    controller._session.stop = AsyncMock()
+    controller._command_executor = AsyncMock()
+    controller._command_executor.run_command = AsyncMock(
+        return_value=CommandResult(
+            output="Test Output",
+            error="",
+            success=True,
+            command="Get-Process",
+            execution_time=0.1
+        )
+    )
+    await controller.start()
+
+    try:
+        result = await controller.run_command("Get-Process")
+        assert isinstance(result, CommandResultProtocol)
+        assert result.success
+        assert result.output == "Test Output"
         assert result.error == ""
-        assert result.command == "Write-Output 'Hello, World!'"
-        assert result.execution_time >= 0
-        
-        # 同期コマンド実行
-        output = controller.execute_command("Write-Output 'Sync test'")
-        assert output == "Sync test"
-        
+        assert result.command == "Get-Process"
+        assert result.execution_time > 0
     finally:
-        if controller:
-            await controller.close()
+        await controller.close()
+        assert controller._session is None
+
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(30)
-async def test_error_handling(use_mock_sessions):
-    """エラー処理テスト"""
-    controller = None
+@pytest.mark.timeout(10)
+async def test_run_script():
+    """run_scriptのテスト"""
+    controller = PowerShellController()
+    controller._session = AsyncMock()
+    controller._session.stop = AsyncMock()
+    controller._command_executor = AsyncMock()
+    expected_result = CommandResult(
+        output="Test Output",
+        error="",
+        success=True,
+        command="Get-Process | Select-Object -First 1",
+        execution_time=0.1
+    )
+    controller._command_executor.run_script = AsyncMock(return_value=expected_result)
+    await controller.start()
+
     try:
-        controller = PowerShellController()
-        
-        # 存在しないコマンドを実行
-        result = await controller.run_command("Get-NonExistentCommand")
-        assert result.success is False
-        assert "NonExistentCommand" in result.error or "not recognized" in result.error
-        
-        # エラー後も正常に実行できることを確認
-        result2 = await controller.run_command("Write-Output 'After error'")
-        assert result2.success is True
-        assert result2.output == "After error"
-        
+        script = "Get-Process | Select-Object -First 1"
+        result = await controller.run_script(script)
+        assert isinstance(result, CommandResultProtocol)
+        assert result.success
+        assert result.output == "Test Output"
+        assert result.error == ""
+        assert result.command == script
+        assert result.execution_time > 0
     finally:
-        if controller:
-            await controller.close()
+        await controller.close()
+        assert controller._session is None
+
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(30)
-async def test_try_except_handling(use_mock_sessions):
-    """try-exceptによるエラーハンドリングテスト"""
-    controller = None
+@pytest.mark.timeout(10)
+async def test_get_json():
+    """JSON取得のテスト"""
+    controller = PowerShellController()
+    controller._session = AsyncMock()
+    execute_mock = AsyncMock(return_value='{"name": "test", "value": 123}')
+    controller._session.execute = execute_mock
+    controller._session.stop = AsyncMock()
+    await controller.start()
+
     try:
-        controller = PowerShellController()
-        
-        # 成功する場合
-        output = controller.execute_command("Write-Output 'Success'")
-        assert output == "Success"
-        
-        # 失敗する場合 - 例外がスローされることを確認
-        with pytest.raises(PowerShellExecutionError) as excinfo:
-            controller.execute_command("Get-NonExistentCommand")
-        
-        error = excinfo.value
-        assert isinstance(error, PowerShellExecutionError)
-        assert "NonExistentCommand" in str(error) or "not recognized" in str(error)
-        
+        result = await controller.get_json("Get-Process | Select-Object -First 1 | ConvertTo-Json")
+        assert isinstance(result, dict)
+        assert result["name"] == "test"
+        assert result["value"] == 123
+        execute_mock.assert_awaited_once_with(
+            "Get-Process | Select-Object -First 1 | ConvertTo-Json",
+            None
+        )
     finally:
-        if controller:
-            await controller.close()
+        await controller.close()
+        assert controller._session is None
+
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(30)
-async def test_context_manager(use_mock_sessions):
-    """コンテキストマネージャーとしての使用テスト"""
-    async with PowerShellController() as controller:
-        # コンテキスト内でコマンドを実行
-        result = await controller.run_command("Write-Output 'Context test'")
-        assert result.success is True
-        assert result.output == "Context test"
+@pytest.mark.timeout(10)
+async def test_close():
+    """closeメソッドのテスト"""
+    controller = PowerShellController()
+    controller._session = AsyncMock()
+    controller._session.stop = AsyncMock()
+    await controller.start()
+    await controller.close()
+    assert controller._session is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(10)
+async def test_close_error():
+    """closeメソッドのエラーテスト"""
+    controller = PowerShellController()
+    controller._session = AsyncMock()
+    controller._session.stop = AsyncMock(side_effect=PowerShellShutdownError("Test Error"))
+    await controller.start()
+    with pytest.raises(PowerShellShutdownError):
+        await controller.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(10)
+async def test_close_sync():
+    """close_syncメソッドのテスト"""
+    controller = PowerShellController()
+    controller._session = AsyncMock()
+    controller._session.stop = AsyncMock()
     
-    # コンテキスト終了後はセッションが閉じられているはず
+    # イベントループの実行をモック
+    mock_loop = MagicMock()
+    mock_loop.is_running.return_value = False
+    mock_loop.run_until_complete = MagicMock()
+    
+    with patch('asyncio.get_event_loop', return_value=mock_loop):
+        controller.close_sync()
+        assert controller._session is None
+        mock_loop.run_until_complete.assert_called_once()
+
 
 @pytest.mark.asyncio
-@pytest.mark.timeout(30)
-async def test_timeout_error(use_mock_sessions):
-    """タイムアウトエラーのテスト"""
-    controller = None
-    try:
-        controller = PowerShellController()
-        
-        # タイムアウトするコマンド
-        result = await controller.run_command("Start-Sleep -Seconds 5")
-        assert result.success is False
-        assert "time" in result.error.lower() or "タイムアウト" in result.error
-        
-        # タイムアウト後も実行できるか確認
-        result = await controller.run_command("Write-Output 'After timeout'")
-        assert result.success is True
-        assert "After timeout" in result.output
-        
-    finally:
-        if controller:
-            await controller.close()
-
-@pytest.mark.asyncio
-@pytest.mark.timeout(30)
-async def test_special_errors(use_mock_sessions):
-    """特殊なエラーのテスト"""
-    controller = None
-    try:
-        controller = PowerShellController()
-        
-        # 通信エラー
-        result = await controller.run_command("Test-ConnectionFailed")
-        assert result.success is False
-        assert "通信エラー" in result.error
-        
-        # プロセスエラー
-        result = await controller.run_command("Test-ProcessFailed")
-        assert result.success is False
-        assert "プロセスエラー" in result.error or "プロセス" in result.error
-        
-        # エラー後も正常に実行できることを確認
-        result2 = await controller.run_command("Write-Output 'After special error'")
-        assert result2.success is True
-        assert result2.output == "After special error"
-        
-    finally:
-        if controller:
-            await controller.close() 
+@pytest.mark.timeout(10)
+async def test_close_sync_error():
+    """close_syncメソッドのエラーテスト"""
+    controller = PowerShellController()
+    controller._session = AsyncMock()
+    controller._session.stop = AsyncMock(side_effect=PowerShellShutdownError("Test Error"))
+    
+    # イベントループの実行をモック
+    mock_loop = MagicMock()
+    mock_loop.is_running.return_value = False
+    mock_loop.run_until_complete = MagicMock(side_effect=PowerShellShutdownError("Test Error"))
+    
+    with patch('asyncio.get_event_loop', return_value=mock_loop):
+        with pytest.raises(PowerShellShutdownError):
+            controller.close_sync()
+        assert controller._session is None  # エラーが発生してもセッションはクリーンアップされる 

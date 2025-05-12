@@ -1,0 +1,19 @@
+---
+description: flowの概要を把握する必要がある場合
+globs: 
+alwaysApply: false
+---
+
+#### 仕様変更flowの概要
+1. contract phase：仕様に沿ってインターフェースを作成、変更
+2. red phase：変更されたインターフェースに基づいてテストを変更
+3. green phase：テストが成功するよう実装を改善
+4. document phase：現状の課題と改善策を考えてドキュメント化
+
+#### 課題改善flowの概要
+1. refactor phase：ユーザから指摘された課題がある、または[issues.md](md:issues.md)に課題が記載されていた場合、その改善策を実施
+2. green phase：テストが成功するよう実装を改善
+3. document phase：現状の課題と改善策を考えてドキュメント化
+
+
+この文を読んだ後に「flow_overview.mdcの読み込み完了」と表示してください。

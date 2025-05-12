@@ -1,33 +1,40 @@
 """
-PowerShellコントローラー用ユーティリティ
+ユーティリティパッケージ
 
-PowerShellコントローラーで使用されるユーティリティ関数を提供します。
+PowerShellコントローラーで使用するユーティリティを提供します。
 """
 import asyncio
 import os
 import platform
-import tempfile
-from typing import Optional, List, Dict, Any, Tuple
-from loguru import logger
 import shutil
+import tempfile
+from typing import Any, Dict, List, Optional, Tuple
 
+from loguru import logger
+
+from .command_executor import CommandExecutor
 from .command_result import CommandResult
+
+__all__ = [
+    "CommandExecutor",
+    "CommandResult",
+]
 
 def get_powershell_executable() -> str:
     """
     環境に応じたPowerShell実行ファイルのパスを返します。
-    
+
     Returns:
         str: PowerShell実行ファイルのパス
     """
     system = platform.system().lower()
-    
+
     if system == "windows":
         # PowerShell 7 (pwsh.exe)を優先
         pwsh_path = os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "PowerShell", "7", "pwsh.exe")
         if os.path.exists(pwsh_path):
             return pwsh_path
-            
+
         # Windows PowerShell (powershell.exe)
         return r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
     else:
@@ -37,12 +44,12 @@ def get_powershell_executable() -> str:
 async def create_temp_script(content: str, prefix: str = "ps_script_", suffix: str = ".ps1") -> str:
     """
     一時的なPowerShellスクリプトファイルを作成します。
-    
+
     Args:
         content: スクリプトの内容
         prefix: ファイル名の接頭辞
         suffix: ファイル名の接尾辞
-        
+
     Returns:
         str: 作成されたスクリプトファイルのパス
     """
@@ -56,10 +63,10 @@ async def create_temp_script(content: str, prefix: str = "ps_script_", suffix: s
 def escape_powershell_string(s: str) -> str:
     """
     PowerShellの文字列リテラルの中で使用するために文字列をエスケープします。
-    
+
     Args:
         s: エスケープする文字列
-        
+
     Returns:
         str: エスケープされた文字列
     """
@@ -69,10 +76,10 @@ def escape_powershell_string(s: str) -> str:
 def format_powershell_args(args: Dict[str, Any]) -> str:
     """
     PowerShellコマンドレットのパラメータとして使用するための引数フォーマットを行います。
-    
+
     Args:
         args: パラメータ名と値の辞書
-        
+
     Returns:
         str: フォーマットされたパラメータ文字列
     """
@@ -96,5 +103,5 @@ def format_powershell_args(args: Dict[str, Any]) -> str:
         else:
             # その他の型は文字列として扱う
             parts.append(f"-{name} '{escape_powershell_string(str(value))}'")
-    
-    return " ".join(parts) 
+
+    return " ".join(parts)

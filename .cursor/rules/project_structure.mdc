@@ -1,0 +1,27 @@
+---
+description: ファイルを新規作成するなど、ディレクトリ構造の理解が必要になった場合
+globs: 
+alwaysApply: false
+---
+プロジェクトの構造は下記を参考にしてください。ただし、これは一部ファイル等を省略していることに注意してください。また、変更すべきだと思った際は、課題としてissues.mdに記載し、ユーザに概要を報告してください。
+
+```
+py-pshell/
+├── README.md                     # 外部のライブラリ使用者向けのドキュメント。プロジェクトの後半で作成。
+├── issues.md                     # 現在の課題や技術的負債のメモ。Cursorや開発者の共有ナレッジベースとして有効。
+├── pyproject.toml                # ビルド設定・依存管理。black/ruff/pytestなどのツール設定もここに統合可。                 
+├── .cursor/
+│   └── rules/                    # Cursor用ルール（mdcファイル）を格納。
+│       └── main.mdc             # Cursorのエントリーポイント
+├── src/
+│   └── py_pshell/                # 実際の実装コード（プロジェクト名に準拠した名前）
+│       ├── __init__.py
+│       ├── interfaces/          # 外部との接点（CLI, APIインターフェース、IOポート）
+│       ├── core/              
+│       └── infrastructure/      # OSコマンドやシェル制御、ファイルIO、ログ、DB などの実装
+├── tests/
+│   ├── unit/                    # 各層ごとのユニットテスト（domain、applicationが中心）
+│   └── integration/             # infra + app間の疎結合テスト、CLI/APIの統合検証
+└── examples/                    # 動作例やユーザ向けの利用デモ
+```
+この文を読んだ後に「project_structure.mdcの読み込み完了」と表示してください。
