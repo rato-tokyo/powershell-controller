@@ -4,7 +4,8 @@
 PowerShellコントローラーで使用するインターフェースを定義します。
 """
 
-from typing import Any, Dict, Optional, Protocol, runtime_checkable
+import types
+from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
@@ -38,8 +39,21 @@ class CommandResultProtocol(Protocol):
         """実行時間（秒）"""
         ...
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """辞書形式に変換"""
+        ...
+
+
+@runtime_checkable
+class SessionProtocol(Protocol):
+    """PowerShellセッションプロトコル"""
+
+    async def execute(self, command: str, timeout: float | None = None) -> str:
+        """コマンドを実行"""
+        ...
+
+    async def stop(self) -> None:
+        """セッションを停止"""
         ...
 
 
@@ -59,7 +73,12 @@ class PowerShellControllerProtocol(Protocol):
         """非同期コンテキストマネージャーのエントリーポイント"""
         ...
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type | None,
+        exc_val: Exception | None,
+        exc_tb: types.TracebackType | None,
+    ) -> None:
         """非同期コンテキストマネージャーのエグジットポイント"""
         ...
 
@@ -75,22 +94,22 @@ class PowerShellControllerProtocol(Protocol):
         """セッションを同期的に終了"""
         ...
 
-    async def execute_command(self, command: str, timeout: Optional[float] = None) -> str:
+    async def execute_command(self, command: str, timeout: float | None = None) -> str:
         """コマンドを実行"""
         ...
 
     async def run_command(
-        self, command: str, timeout: Optional[float] = None
+        self, command: str, timeout: float | None = None
     ) -> CommandResultProtocol:
         """コマンドを実行し、結果を返す"""
         ...
 
     async def run_script(
-        self, script: str, timeout: Optional[float] = None
+        self, script: str, timeout: float | None = None
     ) -> CommandResultProtocol:
         """スクリプトを実行し、結果を返す"""
         ...
 
-    async def get_json(self, command: str, timeout: Optional[float] = None) -> Dict[str, Any]:
+    async def get_json(self, command: str, timeout: float | None = None) -> dict[str, Any]:
         """コマンドを実行し、結果をJSONとして返す"""
         ...

@@ -56,4 +56,43 @@
 
 - PowerShell 7の環境依存性への対応
 - パフォーマンス最適化（大量のコマンド実行時）
-- セキュリティ強化（入力検証の徹底） 
+- セキュリティ強化（入力検証の徹底）
+
+## 文字化け問題
+
+### 問題点
+- PowerShellコントローラーのターミナル出力で`stream_handler.py`が文字化けする問題が発生
+- Cursorエディタで直接開いた場合は文字化けしない
+
+### 調査結果
+- システムのデフォルトエンコーディングは`UTF-8`(CodePage: 65001)
+- PowerShellの出力エンコーディングは`Shift-JIS`(CodePage: 932)
+- Pythonファイルは`UTF-8`でエンコードされている
+- `StreamHandler`クラスでは以下の処理を行っている：
+  - PowerShell側に`$OutputEncoding = [System.Text.Encoding]::UTF8`を設定する初期化スクリプトを送信
+  - Pythonからの出力はsettings.encoding（デフォルト：UTF-8）でエンコード
+  - PowerShellからの入力はsettings.encoding（デフォルト：UTF-8）でデコード
+- ターミナル上で設定と実際の動作に不一致がある可能性がある
+
+### 原因の可能性
+1. PowerShell 7のターミナルの出力エンコーディングが`Shift-JIS`だが、Pythonからは`UTF-8`として処理している
+2. 初期化スクリプトが正しく適用されていない、または効果がない
+3. PowerShellプロセスの起動時にエンコーディング設定が適切に継承されていない
+4. ターミナルの文字コード設定(CodePage: 932)とファイルの文字コード(UTF-8)の不一致
+
+### 対応案
+1. すべてのPythonファイルの先頭に`# -*- coding: utf-8 -*-`を明示的に追加
+2. `StreamHandler`クラスのエンコーディング処理を改善：
+   - システムの実際のエンコーディングを検出して適応させる機能の追加
+   - PowerShellの出力エンコーディングが`Shift-JIS`の場合の互換性対応
+3. PowerShellプロセス開始時のコマンドラインにエンコーディング指定を追加：
+   ```powershell
+   pwsh -NoProfile -OutputEncoding UTF8 -InputEncoding UTF8 ...
+   ```
+4. デバッグログを強化して、実際のエンコード/デコード処理の動作確認機能を追加
+
+### 優先度
+中
+
+### 担当者
+未割り当て 

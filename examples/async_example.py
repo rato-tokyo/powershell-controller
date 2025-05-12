@@ -10,7 +10,7 @@ from py_pshell.config import PowerShellControllerSettings
 from py_pshell.controller import PowerShellController
 
 
-async def async_example():
+async def async_example() -> None:
     """非同期APIの使用例"""
     print("===== 非同期APIの使用例 =====")
 
@@ -50,7 +50,7 @@ async def async_example():
             print(f"  エラー: {result.error}")
 
 
-async def main():
+async def main() -> None:
     await async_example()
     print("\n===== 完了 =====")
 

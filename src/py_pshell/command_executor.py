@@ -7,7 +7,6 @@ PowerShellコマンドの実行に関する機能を提供します。
 import asyncio
 import threading
 import time
-from typing import Optional, Union
 
 from loguru import logger
 
@@ -24,20 +23,20 @@ class CommandExecutor:
     コマンドの実行に関する機能を提供します。
     """
 
-    def __init__(self, session: Union[PowerShellSession, SessionProtocol]):
+    def __init__(self, session: PowerShellSession | SessionProtocol) -> None:
         """
         コマンド実行クラスを初期化します。
 
         Args:
             session: PowerShellセッション
         """
-        self._session: Union[PowerShellSession, SessionProtocol] = session
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._session: PowerShellSession | SessionProtocol = session
+        self._loop: asyncio.AbstractEventLoop | None = None
         self._lock: threading.RLock = threading.RLock()
         logger.debug("CommandExecutorが初期化されました")
 
     async def run_command(
-        self, command: str, timeout: Optional[float] = None
+        self, command: str, timeout: float | None = None
     ) -> CommandResultProtocol:
         """
         PowerShellコマンドを実行します。
@@ -95,7 +94,7 @@ class CommandExecutor:
             return result
 
     async def run_script(
-        self, script: str, timeout: Optional[float] = None
+        self, script: str, timeout: float | None = None
     ) -> CommandResultProtocol:
         """
         PowerShellスクリプトを実行します。
@@ -114,7 +113,7 @@ class CommandExecutor:
         script_result: CommandResultProtocol = await self.run_command(script, timeout)
         return script_result
 
-    async def execute_command(self, command: str, timeout: Optional[float] = None) -> str:
+    async def execute_command(self, command: str, timeout: float | None = None) -> str:
         """
         PowerShellコマンドを実行し、文字列結果を返します。
 
@@ -129,7 +128,7 @@ class CommandExecutor:
             PowerShellExecutionError: コマンドの実行に失敗した場合
         """
         try:
-            effective_timeout: Optional[float] = timeout
+            effective_timeout: float | None = timeout
             result: str = await self._session.execute(command, effective_timeout)
             return result
         except Exception as e:

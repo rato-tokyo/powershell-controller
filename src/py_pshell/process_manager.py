@@ -6,7 +6,6 @@ PowerShellプロセスの起動と終了を管理する機能を提供します�
 
 import asyncio
 import subprocess
-from typing import Optional, Tuple
 
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -23,7 +22,7 @@ class ProcessManager:
     PowerShellプロセスの起動と終了を管理します。
     """
 
-    def __init__(self, settings: PowerShellControllerSettings):
+    def __init__(self, settings: PowerShellControllerSettings) -> None:
         """
         プロセス管理クラスを初期化します。
 
@@ -31,15 +30,15 @@ class ProcessManager:
             settings: セッションの設定
         """
         self.settings = settings
-        self._process: Optional[asyncio.subprocess.Process] = None
-        self._reader: Optional[asyncio.StreamReader] = None
-        self._writer: Optional[asyncio.StreamWriter] = None
+        self._process: asyncio.subprocess.Process | None = None
+        self._reader: asyncio.StreamReader | None = None
+        self._writer: asyncio.StreamWriter | None = None
         logger.debug("ProcessManagerが初期化されました")
 
     @retry(
         stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10), reraise=True
     )
-    async def start(self) -> Tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+    async def start(self) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
         """
         PowerShellプロセスを開始します。
 
@@ -75,7 +74,7 @@ class ProcessManager:
             loop = asyncio.get_running_loop()
             reader = asyncio.StreamReader()
             protocol = asyncio.StreamReaderProtocol(reader)
-            transport = await asyncio.wait_for(
+            await asyncio.wait_for(
                 loop.connect_read_pipe(lambda: protocol, process.stdout), timeout=5.0
             )
             writer = asyncio.StreamWriter(process.stdin, protocol, reader, loop)
@@ -88,7 +87,7 @@ class ProcessManager:
 
             return reader, writer
 
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             logger.error("PowerShellプロセスの起動がタイムアウトしました")
             raise PowerShellStartupError("PowerShellプロセスの起動がタイムアウトしました") from e
         except Exception as e:
@@ -111,7 +110,7 @@ class ProcessManager:
             self._process.terminate()
             try:
                 await asyncio.wait_for(self._process.wait(), timeout=5.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self._process.kill()
                 await self._process.wait()
 

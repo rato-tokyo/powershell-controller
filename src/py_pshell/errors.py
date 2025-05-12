@@ -4,8 +4,9 @@ PowerShellコントローラーのエラークラス定義
 このモジュールはPowerShellコントローラーで使用されるすべてのエラークラスを定義します。
 """
 
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, Optional, TypeVar
+from typing import TypeVar
 
 from result import Err, Ok, Result
 
@@ -36,9 +37,9 @@ class PowerShellTimeoutError(PowerShellError):
     def __init__(
         self,
         message: str = "PowerShell操作がタイムアウトしました",
-        operation: Optional[str] = None,
-        timeout: Optional[float] = None,
-    ):
+        operation: str | None = None,
+        timeout: float | None = None,
+    ) -> None:
         self.operation = operation
         self.timeout = timeout
 
@@ -55,21 +56,21 @@ class PowerShellTimeoutError(PowerShellError):
 class CommunicationError(PowerShellError):
     """PowerShellプロセスとの通信エラー"""
 
-    def __init__(self, message: str = "PowerShellプロセスとの通信に失敗しました"):
+    def __init__(self, message: str = "PowerShellプロセスとの通信に失敗しました") -> None:
         super().__init__(message)
 
 
 class ProcessError(PowerShellError):
     """PowerShellプロセス操作エラー"""
 
-    def __init__(self, message: str = "PowerShellプロセス操作でエラーが発生しました"):
+    def __init__(self, message: str = "PowerShellプロセス操作でエラーが発生しました") -> None:
         super().__init__(message)
 
 
 class PowerShellStreamError(PowerShellError):
     """PowerShellストリームの操作に失敗した場合の例外"""
 
-    def __init__(self, message: str = "PowerShellストリームの操作に失敗しました"):
+    def __init__(self, message: str = "PowerShellストリームの操作に失敗しました") -> None:
         super().__init__(message)
 
 
@@ -85,7 +86,7 @@ def as_result(func: Callable[..., T]) -> Callable[..., Result[T, PowerShellError
     """
 
     @wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Result[T, PowerShellError]:
+    def wrapper(*args: object, **kwargs: object) -> Result[T, PowerShellError]:
         try:
             result = func(*args, **kwargs)
             return Ok(result)

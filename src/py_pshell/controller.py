@@ -6,7 +6,8 @@ PowerShellコマンドの実行を制御するクラスを提供します。
 
 import asyncio
 import json
-from typing import Any, Dict, Optional, TypeVar
+import types
+from typing import Any, TypeVar
 
 from loguru import logger
 
@@ -19,6 +20,7 @@ from py_pshell.interfaces import (
     CommandResultProtocol,
     PowerShellControllerProtocol,
     PowerShellControllerSettings,
+    SessionProtocol,
 )
 from py_pshell.utils.command_executor import CommandExecutor
 
@@ -32,16 +34,16 @@ class PowerShellController(PowerShellControllerProtocol):
     非同期コンテキストマネージャーとして使用できます。
     """
 
-    def __init__(self, settings: Optional[PowerShellControllerSettings] = None):
+    def __init__(self, settings: PowerShellControllerSettings | None = None) -> None:
         """初期化
 
         Args:
             settings: コントローラーの設定
         """
         self._settings: PowerShellControllerSettings = settings or PowerShellControllerSettings()
-        self._session: Optional[Any] = None
-        self._command_executor: Optional[CommandExecutor] = None
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._session: SessionProtocol | None = None
+        self._command_executor: CommandExecutor | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     async def __aenter__(self) -> "PowerShellController":
         """非同期コンテキストマネージャーのエントリーポイント
@@ -53,7 +55,7 @@ class PowerShellController(PowerShellControllerProtocol):
         return self
 
     async def __aexit__(
-        self, exc_type: Optional[type], exc_val: Optional[Exception], exc_tb: Optional[Any]
+        self, exc_type: type | None, exc_val: Exception | None, exc_tb: types.TracebackType | None
     ) -> None:
         """非同期コンテキストマネージャーのエグジットポイント
 
@@ -126,7 +128,7 @@ class PowerShellController(PowerShellControllerProtocol):
                 self._session = None
                 self._command_executor = None
 
-    async def execute_command(self, command: str, timeout: Optional[float] = None) -> str:
+    async def execute_command(self, command: str, timeout: float | None = None) -> str:
         """PowerShellコマンドを実行します。
 
         Args:
@@ -151,7 +153,7 @@ class PowerShellController(PowerShellControllerProtocol):
             raise PowerShellExecutionError(f"コマンドの実行に失敗しました: {e}") from e
 
     async def run_command(
-        self, command: str, timeout: Optional[float] = None
+        self, command: str, timeout: float | None = None
     ) -> CommandResultProtocol:
         """PowerShellコマンドを実行し、結果を返します。
 
@@ -179,7 +181,7 @@ class PowerShellController(PowerShellControllerProtocol):
             raise PowerShellExecutionError(f"コマンドの実行に失敗しました: {e}") from e
 
     async def run_script(
-        self, script: str, timeout: Optional[float] = None
+        self, script: str, timeout: float | None = None
     ) -> CommandResultProtocol:
         """PowerShellスクリプトを実行し、結果を返します。
 
@@ -204,7 +206,7 @@ class PowerShellController(PowerShellControllerProtocol):
             logger.error(f"スクリプトの実行に失敗しました: {e}")
             raise PowerShellExecutionError(f"スクリプトの実行に失敗しました: {e}") from e
 
-    async def get_json(self, command: str, timeout: Optional[float] = None) -> Dict[str, Any]:
+    async def get_json(self, command: str, timeout: float | None = None) -> dict[str, Any]:
         """PowerShellコマンドを実行し、結果をJSONとして返します。
 
         Args:
@@ -228,11 +230,11 @@ class PowerShellController(PowerShellControllerProtocol):
             logger.error(f"JSONの取得に失敗しました: {e}")
             raise PowerShellExecutionError(f"JSONの取得に失敗しました: {e}") from e
 
-    async def _create_session(self) -> Any:
+    async def _create_session(self) -> SessionProtocol | None:
         """PowerShellセッションを作成します。
 
         Returns:
-            Any: 作成されたセッション
+            SessionProtocol | None: 作成されたセッション
 
         Raises:
             PowerShellStartupError: セッションの作成に失敗した場合
@@ -244,7 +246,7 @@ class PowerShellController(PowerShellControllerProtocol):
             logger.error(f"セッションの作成に失敗しました: {e}")
             raise PowerShellStartupError(f"セッションの作成に失敗しました: {e}") from e
 
-    def _parse_json(self, json_str: str) -> Dict[str, Any]:
+    def _parse_json(self, json_str: str) -> dict[str, Any]:
         """JSON文字列をパースします。
 
         Args:
@@ -260,7 +262,7 @@ class PowerShellController(PowerShellControllerProtocol):
             # 文字列の前後の空白を削除
             json_str = json_str.strip()
             # JSONをパース
-            result: Dict[str, Any] = json.loads(json_str)
+            result: dict[str, Any] = json.loads(json_str)
             return result
         except Exception as e:
             logger.error(f"JSONのパースに失敗しました: {e}")

@@ -7,7 +7,7 @@ PowerShellコントローラーで使用するユーティリティを提供し�
 import os
 import platform
 import tempfile
-from typing import Any, Dict
+from typing import Any
 
 from .command_executor import CommandExecutor
 from .command_result import CommandResult
@@ -76,7 +76,7 @@ def escape_powershell_string(s: str) -> str:
     return s.replace("'", "''")
 
 
-def format_powershell_args(args: Dict[str, Any]) -> str:
+def format_powershell_args(args: dict[str, Any]) -> str:
     """
     PowerShellコマンドレットのパラメータとして使用するための引数フォーマットを行います。
 

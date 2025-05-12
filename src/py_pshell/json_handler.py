@@ -5,7 +5,7 @@ PowerShellコマンドの結果をJSONとして処理する機能を提供しま
 """
 
 import json
-from typing import Any, Dict, cast
+from typing import Any, cast
 
 
 class JsonHandler:
@@ -16,7 +16,7 @@ class JsonHandler:
     """
 
     @staticmethod
-    def get_json(command: str, output: str) -> Dict[str, Any]:
+    def get_json(command: str, output: str) -> dict[str, Any]:
         """
         PowerShellコマンドの結果をJSON形式で解析して返します。
 
@@ -33,7 +33,7 @@ class JsonHandler:
         try:
             return json.loads(output)
         except json.JSONDecodeError as e:
-            raise ValueError(f"JSONの解析に失敗しました: {e}\n元データ: {output}")
+            raise ValueError(f"JSONの解析に失敗しました: {e}\n元データ: {output}") from e
 
     @staticmethod
     def ensure_json_command(command: str) -> str:
@@ -51,7 +51,7 @@ class JsonHandler:
         return command
 
     @staticmethod
-    def parse_json(command: str, output: str) -> Dict[str, Any]:
+    def parse_json(command: str, output: str) -> dict[str, Any]:
         """
         PowerShellコマンドの結果をJSON形式で解析して返します。
 
@@ -69,6 +69,6 @@ class JsonHandler:
             result = json.loads(output)
             if not isinstance(result, dict):
                 raise ValueError(f"JSONの解析結果が辞書ではありません: {result}")
-            return cast(Dict[str, Any], result)
+            return cast(dict[str, Any], result)
         except json.JSONDecodeError as e:
             raise ValueError(f"JSONの解析に失敗しました: {e}\n元データ: {output}") from e

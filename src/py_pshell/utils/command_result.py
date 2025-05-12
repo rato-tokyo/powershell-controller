@@ -4,7 +4,7 @@
 PowerShellコマンドの実行結果を表すクラスを提供します。
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -21,7 +21,7 @@ class CommandResult(BaseModel):
     command: str = Field(..., description="実行されたコマンド")
     execution_time: float = Field(..., description="実行時間（秒）")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """辞書形式に変換します。
 
         Returns:

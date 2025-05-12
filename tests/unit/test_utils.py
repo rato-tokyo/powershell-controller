@@ -7,7 +7,7 @@ PowerShellコントローラーのテスト用ユーティリティ
 import os
 import platform
 import tempfile
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import pytest
 from loguru import logger
@@ -41,7 +41,7 @@ class MockPowerShellController(PowerShellControllerProtocol):
 
     def __init__(
         self,
-        command_responses: Dict[str, Union[str, Exception]] = None,
+        command_responses: dict[str, str | Exception] = None,
         default_response: str = "",
         raise_on_unknown: bool = False,
     ):
@@ -56,11 +56,11 @@ class MockPowerShellController(PowerShellControllerProtocol):
         self.command_responses = command_responses or {}
         self.default_response = default_response
         self.raise_on_unknown = raise_on_unknown
-        self.executed_commands: List[str] = []
+        self.executed_commands: list[str] = []
         self.closed = False
 
     async def run_command(
-        self, command: str, timeout: Optional[float] = None
+        self, command: str, timeout: float | None = None
     ) -> CommandResultProtocol:
         """
         コマンドを実行します（モック）
@@ -69,7 +69,7 @@ class MockPowerShellController(PowerShellControllerProtocol):
         return self._get_result(command)
 
     async def run_script(
-        self, script: str, timeout: Optional[float] = None
+        self, script: str, timeout: float | None = None
     ) -> CommandResultProtocol:
         """
         スクリプトを実行します（モック）
@@ -77,7 +77,7 @@ class MockPowerShellController(PowerShellControllerProtocol):
         self.executed_commands.append(script)
         return self._get_result(script)
 
-    def execute_command(self, command: str, timeout: Optional[float] = None) -> str:
+    def execute_command(self, command: str, timeout: float | None = None) -> str:
         """
         コマンドを同期的に実行します（モック）
         """
@@ -87,13 +87,13 @@ class MockPowerShellController(PowerShellControllerProtocol):
             raise PowerShellExecutionError(result.error, command)
         return result.output
 
-    def execute_script(self, script: str, timeout: Optional[float] = None) -> str:
+    def execute_script(self, script: str, timeout: float | None = None) -> str:
         """
         スクリプトを同期的に実行します（モック）
         """
         return self.execute_command(script, timeout)
 
-    def get_json(self, command: str, timeout: Optional[float] = None) -> Dict[str, Any]:
+    def get_json(self, command: str, timeout: float | None = None) -> dict[str, Any]:
         """
         コマンドを実行しJSON形式で結果を返します（モック）
         """
@@ -197,7 +197,10 @@ def mock_controller():
             "Get-Process": "Process1\nProcess2\nProcess3",
             "Get-Date": "2023-01-01",
             "Get-Error": PowerShellExecutionError("エラーが発生しました", "Get-Error"),
-            "Get-Process | ConvertTo-Json": '[{"Name": "Process1", "Id": 123}, {"Name": "Process2", "Id": 456}]',
+            "Get-Process | ConvertTo-Json": (
+                '[{"Name": "Process1", "Id": 123}, '
+                '{"Name": "Process2", "Id": 456}]'
+            ),
         },
         default_response="Default Response",
     )

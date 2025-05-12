@@ -8,7 +8,7 @@ from py_pshell.config import PowerShellControllerSettings
 from py_pshell.controller import PowerShellController
 
 
-def shortcuts_example():
+def shortcuts_example() -> None:
     """ショートカットメソッドの使用例"""
     print("===== ショートカットメソッドの使用例 =====")
 

@@ -5,7 +5,7 @@ PowerShellプロセスとの入出力ストリームを管理する機能を提�
 """
 
 import asyncio
-from typing import Final, List, Optional
+from typing import Final
 
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -21,7 +21,7 @@ class StreamHandler:
     PowerShellプロセスとの入出力ストリームを管理します。
     """
 
-    def __init__(self, settings: PowerShellControllerSettings):
+    def __init__(self, settings: PowerShellControllerSettings) -> None:
         """
         ストリーム処理クラスを初期化します。
 
@@ -29,8 +29,8 @@ class StreamHandler:
             settings: セッションの設定
         """
         self.settings: PowerShellControllerSettings = settings
-        self._reader: Optional[asyncio.StreamReader] = None
-        self._writer: Optional[asyncio.StreamWriter] = None
+        self._reader: asyncio.StreamReader | None = None
+        self._writer: asyncio.StreamWriter | None = None
         logger.debug("StreamHandlerが初期化されました")
 
     def set_streams(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
@@ -69,7 +69,7 @@ class StreamHandler:
             await asyncio.wait_for(self._writer.drain(), timeout=5.0)
             logger.debug("初期化スクリプトを送信しました")
 
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             logger.error("初期化スクリプトの送信がタイムアウトしました")
             raise PowerShellStreamError("初期化スクリプトの送信がタイムアウトしました") from e
         except Exception as e:
@@ -97,7 +97,7 @@ class StreamHandler:
             self._writer.write(encoded_command)
             await asyncio.wait_for(self._writer.drain(), timeout=5.0)
 
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             logger.error("コマンドの送信がタイムアウトしました")
             raise PowerShellStreamError("コマンドの送信がタイムアウトしました") from e
         except Exception as e:
@@ -107,7 +107,7 @@ class StreamHandler:
     @retry(
         stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10), reraise=True
     )
-    async def read_output(self, timeout: Optional[float] = None) -> str:
+    async def read_output(self, timeout: float | None = None) -> str:
         """
         出力を読み取ります。
 
@@ -139,7 +139,7 @@ class StreamHandler:
                     output.extend(chunk)
                     if len(output) > max_size:
                         break
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass  # タイムアウトは正常な終了条件として扱う
 
             decoded_output: str = output.decode(self.settings.encoding)
@@ -171,7 +171,7 @@ class StreamHandler:
                 error_msg: str = str(e)
                 logger.debug(f"エラー詳細: {error_msg}")
 
-    async def execute_command(self, command: str, timeout: Optional[float] = None) -> str:
+    async def execute_command(self, command: str, timeout: float | None = None) -> str:
         """
         コマンドを実行し、結果を返します。
 
@@ -195,14 +195,14 @@ class StreamHandler:
 
             # 出力から成功/失敗を判定
             if error_marker in output:
-                split_result: List[str] = output.split(error_marker)
+                split_result: list[str] = output.split(error_marker)
                 error_msg: str = split_result[0].strip()
                 raise PowerShellExecutionError(
                     f"コマンドの実行に失敗しました: {error_msg}", command
                 )
 
             # 成功メッセージを除去
-            split_result: List[str] = output.split(success_marker)
+            split_result: list[str] = output.split(success_marker)
             result: str = split_result[0].strip()
             return result
 

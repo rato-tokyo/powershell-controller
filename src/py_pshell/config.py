@@ -5,7 +5,6 @@ PowerShellコントローラーの設定クラス
 """
 
 from pathlib import Path
-from typing import List
 
 from pydantic import BaseModel, Field
 
@@ -40,7 +39,7 @@ class PowerShellControllerSettings(BaseModel):
     powershell_path: Path = Field(
         default=Path("powershell.exe"), description="PowerShell実行ファイルのパス"
     )
-    powershell_args: List[str] = Field(
+    powershell_args: list[str] = Field(
         default_factory=lambda: [
             "-NoLogo",
             "-NoProfile",
@@ -66,7 +65,7 @@ class PowerShellControllerSettings(BaseModel):
     # カスタムホストを使用するかどうか
     use_custom_host: bool = Field(default=True, description="カスタムホストを使用するかどうか")
 
-    def get_command_args(self) -> List[str]:
+    def get_command_args(self) -> list[str]:
         """
         PowerShellコマンドライン引数を取得します。
 

@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from src.powershell_controller.simple import SimplePowerShellController
 
 
-def setup_logger():
+def setup_logger() -> logging.Logger:
     """ロガーの設定"""
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
@@ -27,7 +27,7 @@ def setup_logger():
     return logger
 
 
-def main():
+def main() -> None:
     """メイン処理"""
     logger = setup_logger()
     logger.info("PowerShell 7を使用してセッションを維持したままディレクトリ移動を行います")

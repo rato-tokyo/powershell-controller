@@ -5,7 +5,6 @@ PowerShellとの接続セッションを管理するためのクラスを提供�
 """
 
 import types
-from typing import Optional, Type
 
 from loguru import logger
 
@@ -46,9 +45,9 @@ class PowerShellSession:
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[types.TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: types.TracebackType | None,
     ) -> None:
         """
         非同期コンテキストマネージャーの終了処理
@@ -98,7 +97,7 @@ class PowerShellSession:
             logger.error(f"PowerShellセッションの停止に失敗: {e}")
             raise PowerShellShutdownError(f"PowerShellセッションの停止に失敗しました: {e}") from e
 
-    async def execute(self, command: str, timeout: Optional[float] = None) -> str:
+    async def execute(self, command: str, timeout: float | None = None) -> str:
         """
         PowerShellコマンドを実行します。
 

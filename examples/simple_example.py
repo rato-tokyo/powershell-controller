@@ -9,7 +9,7 @@ from py_pshell.controller import PowerShellController
 from py_pshell.errors import PowerShellExecutionError, PowerShellTimeoutError
 
 
-def basic_example():
+def basic_example() -> None:
     """基本的な使用例"""
     print("===== 基本的な使用例 =====")
 

@@ -5,12 +5,20 @@ PowerShellコマンドの実行を管理するクラスを提供します。
 """
 
 import time
-from typing import Any, Optional
+from typing import Protocol
 
 from loguru import logger
 
 from py_pshell.interfaces import CommandResultProtocol
 from py_pshell.utils.command_result import CommandResult
+
+
+class SessionProtocol(Protocol):
+    """セッションプロトコル"""
+
+    async def execute(self, command: str, timeout: float | None = None) -> str:
+        """コマンドを実行"""
+        ...
 
 
 class CommandExecutor:
@@ -19,16 +27,16 @@ class CommandExecutor:
     PowerShellコマンドの実行を管理するクラスです。
     """
 
-    def __init__(self, session: Any):
+    def __init__(self, session: SessionProtocol) -> None:
         """初期化
 
         Args:
             session: PowerShellセッション
         """
-        self._session: Any = session
+        self._session: SessionProtocol = session
 
     async def run_command(
-        self, command: str, timeout: Optional[float] = None
+        self, command: str, timeout: float | None = None
     ) -> CommandResultProtocol:
         """コマンドを実行します。
 
@@ -65,7 +73,7 @@ class CommandExecutor:
             )
 
     async def run_script(
-        self, script: str, timeout: Optional[float] = None
+        self, script: str, timeout: float | None = None
     ) -> CommandResultProtocol:
         """スクリプトを実行します。
 

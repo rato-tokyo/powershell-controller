@@ -6,7 +6,6 @@ PowerShellセッションに必要なユーティリティ関数を提供しま�
 
 import platform
 import subprocess
-from typing import List, Optional, Tuple
 
 # PowerShellの初期化スクリプト
 INIT_SCRIPT = """
@@ -55,7 +54,7 @@ Write-Output "SESSION_READY"
 """
 
 
-def get_startup_info() -> Optional[subprocess.STARTUPINFO]:
+def get_startup_info() -> subprocess.STARTUPINFO | None:
     """
     プラットフォームに応じたプロセス起動情報を取得します。
 
@@ -84,7 +83,7 @@ def prepare_command_execution(command: str) -> str:
     return f"__ExecuteCommand '{command.replace("'", "''")}'"
 
 
-def parse_command_result(output_lines: List[str]) -> Tuple[bool, str]:
+def parse_command_result(output_lines: list[str]) -> tuple[bool, str]:
     """
     PowerShellコマンドの実行結果を解析します。
 

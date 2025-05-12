@@ -7,7 +7,6 @@ import os
 import re
 import sys
 from collections.abc import AsyncGenerator
-from typing import Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -206,7 +205,7 @@ def use_mock_sessions(monkeypatch):
 
     # PowerShellControllerのモック
     async def mock_run_command(
-        self, command: str, timeout: Optional[float] = None
+        self, command: str, timeout: float | None = None
     ) -> CommandResult:
         try:
             if not self.session:
@@ -239,7 +238,7 @@ def use_mock_sessions(monkeypatch):
             )
 
     # execute_commandメソッドもモック化
-    def mock_execute_command(self, command: str, timeout: Optional[float] = None) -> str:
+    def mock_execute_command(self, command: str, timeout: float | None = None) -> str:
         """
         モック化されたexecute_commandメソッド
         """
@@ -264,7 +263,7 @@ def use_mock_sessions(monkeypatch):
 
             return "Command executed successfully"
         except Exception as e:
-            raise PowerShellExecutionError(str(e), command)
+            raise PowerShellExecutionError(str(e), command) from e
 
     monkeypatch.setattr(PowerShellController, "run_command", mock_run_command)
     monkeypatch.setattr(PowerShellController, "execute_command", mock_execute_command)
