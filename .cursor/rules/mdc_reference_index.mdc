@@ -10,12 +10,49 @@ alwaysApply: true
 問題解決や情報追加の前に、まず適切なMDCを参照することでMDCルールの遵守を促進します。
 このMDCは必ず遵守してください。
 
+## MDCファーストアプローチ
+
+### 基本原則
+MDCファーストアプローチは、MDC管理と開発プロセスを統合するための核となる設計思想です。
+以下の原則に基づいて実装されています：
+
+1. **MDCを起点とする開発**
+   - すべての作業はMDCを起点として開始する
+   - 問題解決の前にMDCに記録する
+   - 実装よりもドキュメント化を優先する
+
+2. **シームレスな統合**
+   - MDC操作が開発フローの自然な一部となるよう設計
+   - 追加作業ではなく、作業の一部としてのMDC管理
+   - PowerShellプロンプトへの課題状態の統合
+
+3. **即時記録と追跡**
+   - エラー発生時に即座に記録するメカニズム
+   - 課題の状態変化を容易に追跡・更新
+   - 全ての変更がissues.mdに記録される
+
+### 実装
+MDCファーストアプローチは以下のコンポーネントで実装されています：
+
+- **PowerShellスクリプト**: `scripts/mdc_first_approach.ps1`
+- **インストーラー**: `scripts/install_mdc_first.ps1`
+- **ドキュメント**: `scripts/README.md`
+
+### 主要コマンド
+
+| コマンド | 説明 | 使用例 |
+|---------|------|--------|
+| `mdc-task` | MDCを起点として作業開始 | `mdc-task bug "PSReadLineのバグ対応"` |
+| `mdc-error` | エラーを即時記録 | `mdc-error "rm -rf folder" "UNIX互換性問題"` |
+| `mdc-ref` | MDCファイルを参照 | `mdc-ref tool` |
+| `mdc-update` | 課題状態を更新 | `mdc-update "バグ対応" "完了"` |
+| `mdc-trap` | エラー自動検出を有効化 | `mdc-trap` |
+| `mdc-untrap` | エラー自動検出を無効化 | `mdc-untrap` |
+
 ## 問題タイプ別MDC参照ガイド
 
-### エラー・問題発生時
-
 | 問題タイプ | 参照すべきMDC | 次に参照すべきMDC | 記録場所 |
-|------------|--------------|-------------------|----------|
+|---|-----|----|----|
 | PowerShellコマンド実行エラー | `docs/tool_constraints.mdc` | `MDC_structure_guidelines.md` | `issues.md` (環境依存の問題) |
 | PSReadLineモジュール関連エラー | `docs/tool_constraints.mdc` | - | `issues.md` (環境依存の問題) |
 | ツールの制限に関するエラー | `docs/tool_constraints.mdc` | - | `issues.md` (環境依存の問題) |
@@ -24,10 +61,10 @@ alwaysApply: true
 | コードベースとMDCの不整合 | `docs/mdc_metamodel.mdc` | `flows/main/mdc_check.mdc` | `issues.md` (優先度の高い課題) |
 | MDCルール違反 | `MDC_structure_guidelines.md` | `flows/main/mdc_check.mdc` | `issues.md` (優先度の高い課題) |
 
-### 情報追加・更新時
+## 情報追加・更新時
 
 | 情報タイプ | 参照すべきMDC | 記載場所 |
-|------------|--------------|----------|
+|---|-----|----|
 | 新しい開発方針 | `docs/manual_reference.mdc` | 新規MDCファイル作成 |
 | 環境設定の変更 | `environment.mdc` | `environment.mdc` |
 | ツール設定の変更 | `tool_settings.mdc` | `tool_settings.mdc` |
@@ -35,20 +72,20 @@ alwaysApply: true
 | テスト規約の変更 | `python_test.mdc` | `python_test.mdc` |
 | ツールの制限発見 | `docs/tool_constraints.mdc` | `docs/tool_constraints.mdc` とともに `issues.md` |
 
-### フェーズ別MDC参照ガイド
+## フェーズ別MDC参照ガイド
 
 | 作業フェーズ | 主に参照すべきMDC | 補助的に参照すべきMDC |
-|------------|------------------|----------------------|
+|---|---|----|
 | 契約フェーズ | `flows/phases/contract.mdc` | `flow_overview.mdc` |
 | テスト作成フェーズ | `flows/phases/red.mdc` | `python_test.mdc` |
 | 実装フェーズ | `flows/phases/green.mdc` | - |
 | ドキュメントフェーズ | `flows/phases/document.mdc` | - |
 | リファクタリングフェーズ | `flows/phases/refactor.mdc` | - |
 
-### 課題対応時MDC参照ガイド
+## 課題対応時MDC参照ガイド
 
 | 課題タイプ | 参照すべきMDC | 記録更新場所 |
-|------------|--------------|-------------|
+|---|-----|----|
 | テスト網羅性向上 | `python_test.mdc`, `flows/phases/red.mdc` | `issues.md` (該当課題) |
 | ドキュメント整備 | `flows/phases/document.mdc` | `issues.md` (該当課題) |
 | MDC整合性確保 | `flows/main/mdc_check.mdc` | `issues.md` (該当課題) |
@@ -69,69 +106,77 @@ alwaysApply: true
 - 更新日: YYYY-MM-DD
 ```
 
-## 自動記録フロー
+## MDCファーストワークフロー
 
-**重要**: コマンド実行エラーやツール制限に遭遇した場合は、以下の自動記録フローを使用してください。
-これは「先にドキュメント、後に解決」の原則を実践するための最も効率的な方法です。
+### 作業開始時のワークフロー
 
-### PowerShellコマンド失敗時の自動記録
+MDCファーストアプローチを使った標準的な作業開始フローです：
 
-1. **エラー発生時の即時記録スクリプト**:
+1. **MDCを起点とした作業開始**:
    ```powershell
-   # コマンド失敗直後に実行する
-   $failedCommand = "失敗したコマンド"
-   $errorDescription = "どのような問題か簡潔に"
-   
-   $errorRecord = @"
-   **[PowerShell] コマンド実行エラー**
-   - 問題: $errorDescription
-   - 発生環境: Windows $(([System.Environment]::OSVersion.Version).ToString()), PowerShell $($PSVersionTable.PSVersion)
-   - 失敗コマンド: `$failedCommand`
-   - エラーメッセージ: `$($Error[0].Exception.Message)`
-   - ステータス: 未解決
-   - 更新日: $(Get-Date -Format "yyyy-MM-dd")
-   "@
-   
-   Add-Content -Path "issues.md" -Value "`n$errorRecord"
-   
-   # 記録完了メッセージを表示
-   Write-Host "エラーをissues.mdに記録しました。tool_constraints.mdcの更新も忘れずに行ってください。" -ForegroundColor Yellow
+   mdc-task <タイプ> "<課題の説明>"
    ```
 
-2. **エラー発生から24時間以内に必ず実施**:
-   - `docs/tool_constraints.mdc`にエラーの詳細と回避策を追記
-   - `issues.md`の記録を適切なセクションに移動し、関連MDCを追記
+2. **MDCファイル編集**:
+   - 表示されたMDCファイルを編集して作業内容を定義
+   - 問題の背景、アプローチ、期待される結果を記述
 
-### ワンステップ記録ショートカット
+3. **作業実行**:
+   - MDCファイルに基づいて実装作業を進行
+   - エラー発生時は `mdc-error` コマンドで即時記録
 
-別のアプローチとして、以下のようなワンステップ記録ショートカットを作成し、`~/.config/powershell/profile.ps1`に追加することを推奨します：
+4. **課題状態更新**:
+   ```powershell
+   mdc-update "<課題タイトル>" "進行中" "作業状況の備考"
+   ```
 
-```powershell
-function Record-Error {
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$FailedCommand,
-        
-        [Parameter(Mandatory=$true)]
-        [string]$Description
-    )
-    
-    $errorRecord = @"
-**[PowerShell] コマンド実行エラー**
-- 問題: $Description
-- 発生環境: Windows $(([System.Environment]::OSVersion.Version).ToString()), PowerShell $($PSVersionTable.PSVersion)
-- 失敗コマンド: `$FailedCommand`
-- エラーメッセージ: `$($Error[0].Exception.Message)`
-- ステータス: 未解決
-- 更新日: $(Get-Date -Format "yyyy-MM-dd")
-"@
-    
-    Add-Content -Path "issues.md" -Value "`n$errorRecord"
-    Write-Host "エラーをissues.mdに記録しました。tool_constraints.mdcの更新も忘れずに行ってください。" -ForegroundColor Yellow
-}
+5. **作業完了時**:
+   ```powershell
+   mdc-update "<課題タイトル>" "完了" "完了した内容の備考"
+   ```
 
-# 使用例: Record-Error -FailedCommand "rm -rf file.txt" -Description "UNIXコマンドがPowerShellで使用できない"
-```
+### エラー発生時のワークフロー
+
+エラーが発生した場合の標準的な対応フローです：
+
+1. **エラーの即時記録**:
+   ```powershell
+   mdc-error "<失敗したコマンド>" "<エラーの簡潔な説明>"
+   ```
+
+2. **関連MDCの参照**:
+   - 自動的に開かれる `tool_constraints.mdc` を確認
+   - 必要に応じて追加のMDCを参照: `mdc-ref <タイプ>`
+
+3. **エラー詳細の記録**:
+   - `tool_constraints.mdc` に詳細と回避策を追記
+   - 重要なエラーパターンはMDCファーストスクリプトに組み込むことを検討
+
+4. **課題の更新**:
+   - 解決した場合: `mdc-update "<エラータイトル>" "完了" "解決策の詳細"`
+   - 未解決の場合: `mdc-update "<エラータイトル>" "未解決" "試した対策と結果"`
+
+## 自動記録メカニズム
+
+MDCファーストアプローチでは以下の自動記録メカニズムが利用可能です：
+
+1. **エラー自動検出**:
+   ```powershell
+   mdc-trap  # エラートラップを有効化
+   ```
+   エラーが発生すると自動的に記録手順が表示されます。
+
+2. **プロンプト統合**:
+   PowerShellプロンプトに現在の作業状態が表示されます:
+   ```
+   [MDC:BUG] PS C:\project>
+   ```
+
+3. **課題自動記録**:
+   `mdc-task` コマンドを使用すると、issues.mdに自動的に新しい課題が記録されます。
+
+4. **状態追跡**:
+   `mdc-update` コマンドで課題の状態変化を簡単に追跡できます。
 
 ## 記録後のMDC更新フロー
 
@@ -144,7 +189,7 @@ function Record-Error {
 ## 周期的なMDC参照ガイド
 
 | タイミング | 参照すべきMDC | 目的 |
-|-----------|--------------|------|
+|-----|-----|---|
 | セッション開始時 | `docs/init.mdc`, `docs/main.mdc` | 基本ルールの確認 |
 | 新しいフロー開始時 | `flow_overview.mdc`, 該当するフローMDC | フローの詳細確認 |
 | フェーズ開始時 | 該当するフェーズMDC | フェーズの詳細確認 |
@@ -157,7 +202,7 @@ function Record-Error {
    - 問題の性質を特定（PowerShellエラー、MDC不整合など）
    - 上記の「問題タイプ別MDC参照ガイド」から参照すべきMDCを特定
    - 該当するMDCを参照して既知の問題/解決策を確認
-   - `issues.md` に問題を記録（緊急時は最小テンプレートを使用）
+   - `issues.md` に問題を記録（MDCファーストアプローチを使用）
 
 2. **情報追加時**:
    - 追加する情報の種類を特定
@@ -165,11 +210,12 @@ function Record-Error {
    - MDC更新時のチェックリストに従って更新
 
 3. **作業開始時**:
-   - 作業の種類（フェーズ、課題対応など）を特定
-   - 該当する参照ガイドから必要なMDCを特定して参照
+   - MDCファーストアプローチを使用（`mdc-task`）
+   - 作業の種類に応じたMDCが自動的に開かれる
 
 このインデックスは定期的に更新され、新しいMDCが追加された場合や参照関係が変更された場合には速やかに反映されます。
 
 このMDCを読んだ後は「MDC参照インデックスを読み込みました」と表示してください。
+
 
 
