@@ -16,6 +16,12 @@ alwaysApply: true
   - RAIL方針: [rail.mdc](mdc:policies/rail.mdc)
   - flow-phase方針: [flow-phase.mdc](mdc:policies/flow-phase.mdc)
 
+## MDC構造
+プロジェクトのMDC（Markdown Cursor）ファイル構造は以下のメタモデルに従って整理されています：
+- MDCメタモデル: [mdc_metamodel.mdc](mdc:mdc_metamodel.mdc)
+
+MDCメタモデルは各ファイルの役割と責任範囲、および新しい情報の適切な配置場所を定義しています。新しい情報を追加する際は、まずこのメタモデルを参照してください。
+
 ## プロジェクトルールの参照ガイド
 必要に応じて以下のルールを手動で参照してください。参照が必要な場合は「[参照MDC: ファイル名]」の形式でリクエストします。
 
@@ -80,6 +86,9 @@ alwaysApply: true
 - 各フェーズの開始時・終了時には必ず宣言を行ってください
 - プロジェクトの課題一覧は[issues.md](mdc:../../issues.md)を参照してください
 - ツールの制限を新たに発見した場合は、直ちに[tool_constraints.mdc](mdc:tool_constraints.mdc)に記録してください
+- 一時ファイルは[environment.mdc](mdc:environment.mdc)に定義された管理ルールに従って作成・削除してください
+- 新しい情報を追加する際は、[mdc_metamodel.mdc](mdc:mdc_metamodel.mdc)を参照して適切な配置場所を選択してください
+- 情報の配置場所に迷った場合は、[mdc_metamodel.mdc](mdc:mdc_metamodel.mdc)の「新しい情報の追加手順」を参照してください
 
 ## 関連MDC
 特定のフローを開始する場合、以下のフローテンプレートを参照してください：

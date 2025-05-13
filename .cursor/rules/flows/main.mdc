@@ -16,6 +16,9 @@ alwaysApply: true
   - RAIL方針: [rail.mdc](mdc:../docs/rail.mdc)
   - flow-phase方針: [flow-phase.mdc](mdc:../docs/flow_phase.mdc)
 
+## MDCについて
+MDCはMarkdown Cursorの略称です。Cursorのカスタム命令機能を活用したマークダウンファイルを指します。
+
 ## プロジェクトルールの参照ガイド
 必要に応じて以下のルールを手動で参照してください。参照が必要な場合は「[参照MDC: ファイル名]」の形式でリクエストします。
 

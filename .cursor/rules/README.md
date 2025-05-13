@@ -1,8 +1,9 @@
 # MDCファイル管理ガイド
 
 ## 概要
-このディレクトリ（`.cursor/rules`）には、AIが利用するMDC（Manual Development Control）ファイルが格納されています。
-MDCファイルは、AIに特定の開発作業を指示するために使用されるマニュアルです。
+このディレクトリ（`.cursor/rules`）には、AIが利用するMDC（Markdown Cursor）ファイルが格納されています。
+MDCファイルは、AIに特定の開発作業を指示するために使用されるCursorのカスタム命令機能を活用したマークダウンファイルです。
+以前は「Manual Development Control」と誤って記載されていましたが、正しくは「Markdown Cursor」です。
 
 ## ディレクトリ構造
 
@@ -71,4 +72,4 @@ MDCファイルは、AIに特定の開発作業を指示するために使用さ
 </custom_instructions>
 ```
 
-詳しい使用方法は `.cursor/rules/docs/flow_execution.mdc` を参照してください。 
+詳しい使用方法は `.cursor/rules/docs/flow_execution.mdc` を参照してください。
