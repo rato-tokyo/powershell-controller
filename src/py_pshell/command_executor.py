@@ -93,9 +93,7 @@ class CommandExecutor:
             )
             return result
 
-    async def run_script(
-        self, script: str, timeout: float | None = None
-    ) -> CommandResultProtocol:
+    async def run_script(self, script: str, timeout: float | None = None) -> CommandResultProtocol:
         """
         PowerShellスクリプトを実行します。
 

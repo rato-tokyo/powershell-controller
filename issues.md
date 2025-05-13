@@ -32,7 +32,46 @@
      - 到達不能コード（Statement is unreachable）
      - 抽象クラスの実装漏れ（abstract attributes not implemented）
 
+6. **PowerShell PSReadLineモジュールのバグ対応**
+   - 課題: コマンド実行時にPSReadLineモジュールのバグによりArgumentOutOfRangeExceptionが発生する
+   - 改善方針: 以下の対策を実施する
+     - 長いコマンドを複数の短いコマンドに分割して実行する
+     - コマンド実行前にバッファサイズを確認・調整する処理を追加
+     - PSReadLineモジュールのバージョン互換性を確認し、安定バージョンを使用するよう推奨する
+     - コマンド実行時の代替手段（スクリプトファイル経由での実行など）を提供する
+
+7. **ツール制限の文書化と回避策の提供**
+   - 課題: 開発に使用されるツールの制限が文書化されておらず、回避策が共有されていない
+   - 改善方針: 以下の対策を実施する
+     - ツールの制限に関するMDCファイル（tool_constraints.mdc）を作成・維持する
+     - 制限を発見した場合の報告フローを確立する
+     - 既知の制限に対する回避策を具体的なコード例とともに提供する
+     - 新しいツールや機能を導入する際に既知の制限をテストする仕組みを整備する
+
 ## ユーザー対応の課題
+
+## 環境依存の問題
+
+1. **PowerShell 7のPSReadLineモジュールバグ**
+   - 問題: Windows環境でのコマンド実行時にPSReadLineモジュールでArgumentOutOfRangeExceptionが発生
+   - 発生環境: Windows 10.0.26100, PowerShell 7.5.1, PSReadLine 2.3.6
+   - エラーメッセージ: `System.ArgumentOutOfRangeException: The value must be greater than or equal to zero and less than the console's buffer size in that dimension.`
+   - 推定原因: コンソールのバッファサイズを超える操作やバッファ位置の計算ミスがPSReadLineモジュールで発生
+   - 解決策:
+     - 長いコマンドを分割して実行する
+     - スクリプトファイルを使用してコマンドを実行する
+     - PSReadLineモジュールの更新またはダウングレードを検討する
+     - コマンド実行用のラッパー関数を作成し、エラーハンドリングを追加する
+
+2. **run_terminal_cmdツールの制限**
+   - 問題: コマンド引数に改行文字を含めることができない
+   - 発生環境: すべての環境（ツール自体の制限）
+   - エラーメッセージ: `Tool call arguments for run_terminal_cmd were invalid: Argument command must not contain newline characters.`
+   - 推定原因: ツールの設計上の制限
+   - 解決策:
+     - ヒアドキュメント（`@'...'@`）を使用する代わりに、`edit_file`ツールでスクリプトを作成してから実行する
+     - 複数行のコマンドを一行に結合して実行する
+     - 複雑なコマンドはスクリプトファイルに分離する習慣をつける
 
 ## 補足事項
 

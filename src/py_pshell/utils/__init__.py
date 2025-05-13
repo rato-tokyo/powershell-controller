@@ -96,7 +96,7 @@ def format_powershell_args(args: dict[str, Any]) -> str:
                 parts.append(f"-{name}")
             else:
                 parts.append(f"-{name}:$false")
-        elif isinstance(value, (int, float)):
+        elif isinstance(value, int | float):
             parts.append(f"-{name} {value}")
         elif isinstance(value, str):
             parts.append(f"-{name} '{escape_powershell_string(value)}'")

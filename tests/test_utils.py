@@ -68,9 +68,7 @@ class MockPowerShellController(PowerShellControllerProtocol):
         self.executed_commands.append(command)
         return self._get_result(command)
 
-    async def run_script(
-        self, script: str, timeout: float | None = None
-    ) -> CommandResultProtocol:
+    async def run_script(self, script: str, timeout: float | None = None) -> CommandResultProtocol:
         """
         スクリプトを実行します（モック）
         """
@@ -198,8 +196,7 @@ def mock_controller():
             "Get-Date": "2023-01-01",
             "Get-Error": PowerShellExecutionError("エラーが発生しました", "Get-Error"),
             "Get-Process | ConvertTo-Json": (
-                '[{"Name": "Process1", "Id": 123}, '
-                '{"Name": "Process2", "Id": 456}]'
+                '[{"Name": "Process1", "Id": 123}, ' '{"Name": "Process2", "Id": 456}]'
             ),
         },
         default_response="Default Response",

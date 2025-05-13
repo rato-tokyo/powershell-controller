@@ -42,26 +42,27 @@ alwaysApply: false
 - GitHub Actionsで自動テストとリンターを実行
 - `main`ブランチへのマージはテスト成功が条件
 
-## PowerShell設定
-- コンソールバッファサイズの設定:
-  ```powershell
-  # PowerShellプロファイル（$PROFILE）に追加
-  $bufferSize = $Host.UI.RawUI.BufferSize
-  $bufferSize.Width = 200
-  $bufferSize.Height = 5000
-  $Host.UI.RawUI.BufferSize = $bufferSize
-  ```
-- 設定の確認方法: `$Host.UI.RawUI.BufferSize`を実行
-- 出力が多いコマンドの実行については、code_quality.mdcを参照してください
+## ツール設定
+ツールの詳細設定は[tool_settings.mdc](mdc:../tool_settings.mdc)を参照してください。
+以下は設定の概要のみ記載しています。詳細は必ず参照先で確認してください。
+
+### PowerShell設定
+- コンソールバッファサイズの設定（Width = 200、Height = 5000）が必要です
+- 設定方法と確認方法の詳細は[tool_settings.mdc](mdc:../tool_settings.mdc)を参照してください
+
+### Python開発ツール
+- ruff、mypy、black、autoflakeなどの設定は[tool_settings.mdc](mdc:../tool_settings.mdc)に定義されています
+- コード品質向上フローについては[code_quality.mdc](mdc:flows/main/code_quality.mdc)を参照してください
 
 ## トラブルシューティング
 - PowerShellが実行できない場合はExecution Policyを確認
 - テスト失敗時は`--verbose`フラグで詳細を確認
 - コンソールバッファサイズエラー発生時:
-  - `System.ArgumentOutOfRangeException: The value must be greater than or equal to zero and less than the console's buffer size in that dimension. (Parameter 'top')`
-  - 上記「PowerShell設定」を適用
-  - コマンドを分割して実行
-  - 必要に応じてファイル出力を使用: `command > output.txt`
+  - [tool_settings.mdc](mdc:../tool_settings.mdc)のPowerShell設定セクションを参照してください
+  - 必要に応じてファイル出力を検討
+
+## 設定更新時の注意事項
+このMDCファイルの内容を更新する場合は、[tool_settings.mdc](mdc:../tool_settings.mdc)の「変更影響範囲チェックリスト」を確認し、関連ファイルの更新も行ってください。
 
 この文を読んだ後に「環境設定ルールの読み込み完了」と表示してください。
 

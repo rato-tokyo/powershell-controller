@@ -21,6 +21,7 @@ class TestStreamHandler:
     def mock_reader(self):
         """モックの標準出力ストリーム"""
         reader = AsyncMock(spec=asyncio.StreamReader)
+
         # 注意: AsyncMockはデフォルトで非同期コルーチンを返すので、
         # サイドエフェクトには直接bytesオブジェクトではなく、
         # コルーチンをシミュレートするためにbytesを返す関数を設定する
@@ -49,7 +50,7 @@ class TestStreamHandler:
             powershell_executable="powershell",
             encoding="utf-8",
             debug=True,
-            timeout_settings=PowerShellTimeoutSettings(default=30.0)
+            timeout_settings=PowerShellTimeoutSettings(default=30.0),
         )
         return settings
 
@@ -59,7 +60,7 @@ class TestStreamHandler:
         handler = StreamHandler(settings)
         handler.set_streams(mock_reader, mock_writer)
         # タイムアウト設定の参照を修正するためにモンキーパッチを適用
-        with patch.object(handler, 'settings') as mock_settings:
+        with patch.object(handler, "settings") as mock_settings:
             mock_settings.timeout_settings.default = 30.0
             mock_settings.encoding = settings.encoding
             yield handler
@@ -82,10 +83,10 @@ class TestStreamHandler:
     async def test_send_command(self, stream_handler, mock_writer):
         """コマンド送信のテスト"""
         command = "Get-Process"
-        
+
         # コマンドを送信
         await stream_handler.send_command(command)
-        
+
         # コマンドが正しく書き込まれたか確認
         mock_writer.write.assert_called()
         mock_writer.drain.assert_called()
@@ -100,15 +101,15 @@ class TestStreamHandler:
             b"Done",
             b"",  # ストリーム終了
         ]
-        
+
         # wait_forをパッチしてasyncio.wait_forの動作をシミュレート
         async def mock_wait_for(coro, timeout):
             return await coro
-            
+
         # 出力を読み取り
         with patch("asyncio.wait_for", side_effect=mock_wait_for):
             output = await stream_handler.read_output()
-            
+
             # 出力が正しく結合されているか確認
             assert "Process1Process2Done" in output
 
@@ -117,15 +118,15 @@ class TestStreamHandler:
         """コマンド実行成功のテスト"""
         command = "Get-Process"
         expected_output = "Process1\nProcess2"
-        
+
         # モックメソッドのパッチ
         stream_handler.send_command = AsyncMock()
         stream_handler.read_output = AsyncMock(return_value=expected_output)
-        
+
         # コマンド実行
-        with patch.object(stream_handler, 'settings'):
+        with patch.object(stream_handler, "settings"):
             output = await stream_handler.execute_command(command)
-        
+
             # 出力が正しいか確認
             assert output == expected_output
             stream_handler.send_command.assert_called_once_with(command)
@@ -135,15 +136,15 @@ class TestStreamHandler:
     async def test_execute_command_with_error(self, stream_handler):
         """エラーが発生するコマンド実行のテスト"""
         command = "Invalid-Command"
-        
+
         # モックメソッドのパッチ
         stream_handler.send_command = AsyncMock()
         stream_handler.read_output = AsyncMock(return_value="エラーCOMMAND_ERROR")
-        
+
         # 例外が発生するか確認
         with pytest.raises(PowerShellExecutionError):
             await stream_handler.execute_command(command)
-        
+
         # メソッドが正しく呼ばれたか確認
         stream_handler.send_command.assert_called_once_with(command)
         stream_handler.read_output.assert_called_once()
@@ -153,7 +154,7 @@ class TestStreamHandler:
         """ストリームクローズのテスト"""
         # ストリームを閉じる
         await stream_handler.close()
-        
+
         # close()とwait_closed()が呼ばれたか確認
         mock_writer.close.assert_called_once()
         mock_writer.wait_closed.assert_called_once()
@@ -163,42 +164,43 @@ class TestStreamHandler:
         """エンコーディングエラー処理のテスト"""
         # UTF-8以外のエンコーディングを設定
         settings.encoding = "shift-jis"
-        
+
         # モックリーダーの作成
         mock_reader = AsyncMock(spec=asyncio.StreamReader)
-        
+
         # 読み取りメソッドをオーバーライド
         async def read_side_effect(*args, **kwargs):
             result = mock_reader._mock_data.pop(0)
             return result
-            
+
         mock_reader.read = AsyncMock(side_effect=read_side_effect)
         mock_reader._mock_data = [
             "こんにちは".encode("shift-jis"),
             "世界".encode("shift-jis"),
             b"",  # ストリーム終了
         ]
-        
+
         mock_writer = AsyncMock(spec=asyncio.StreamWriter)
         mock_writer.write = MagicMock()
         mock_writer.drain = AsyncMock()
-        
+
         # StreamHandlerを作成
         handler = StreamHandler(settings)
         handler.set_streams(mock_reader, mock_writer)
-        
+
         # asyncio.wait_forをモック
         async def mock_wait_for(coro, timeout):
             return await coro
-            
+
         # 出力を読み取り
-        with patch("asyncio.wait_for", side_effect=mock_wait_for), \
-             patch.object(handler, 'settings') as mock_settings:
+        with patch("asyncio.wait_for", side_effect=mock_wait_for), patch.object(
+            handler, "settings"
+        ) as mock_settings:
             mock_settings.timeout_settings.default = 30.0
             mock_settings.encoding = "shift-jis"
-            
+
             output = await handler.read_output()
-            
+
             # 日本語が正しく処理されたか確認
             assert "こんにちは" in output
-            assert "世界" in output 
+            assert "世界" in output

@@ -180,9 +180,7 @@ class PowerShellController(PowerShellControllerProtocol):
             logger.error(f"コマンドの実行に失敗しました: {e}")
             raise PowerShellExecutionError(f"コマンドの実行に失敗しました: {e}") from e
 
-    async def run_script(
-        self, script: str, timeout: float | None = None
-    ) -> CommandResultProtocol:
+    async def run_script(self, script: str, timeout: float | None = None) -> CommandResultProtocol:
         """PowerShellスクリプトを実行し、結果を返します。
 
         Args:

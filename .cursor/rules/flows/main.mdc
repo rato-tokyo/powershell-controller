@@ -31,10 +31,11 @@ alwaysApply: true
 - 課題改善フロー: [issue_improvement.mdc](mdc:main/issue_improvement.mdc)
 
 ### 環境設定
-- 開発環境のセットアップ: [environment.mdc](mdc:../docs/environment.mdc)
+- 開発環境のセットアップ: [environment.mdc](mdc:../environment.mdc)
+- ツール設定（全ツールの設定を一元管理）: [tool_settings.mdc](mdc:../tool_settings.mdc)
 
 ### テスト規約
-- Pythonテストのルール: [python_test.mdc](mdc:../docs/python_test.mdc)
+- Pythonテストのルール: [python_test.mdc](mdc:../python_test.mdc)
 
 ### コード品質
 - コード品質向上フロー: [code_quality.mdc](mdc:main/code_quality.mdc)
@@ -70,9 +71,15 @@ alwaysApply: true
 
 ### 基本設定（常時必要）
 - [main.mdc](mdc:main.mdc): 基本ルール（常に最初に添付）
+- [tool_settings.mdc](mdc:../tool_settings.mdc): ツール設定（ツール設定変更時に参照）
 
 ### フロー実行方法の詳細
 フローMDCの添付方法と実行方法の詳細については、[flow_execution.mdc](mdc:../docs/flow_execution.mdc)を参照してください。
+
+## MDC更新ルール
+1. ツール設定を変更する場合は、必ず[tool_settings.mdc](mdc:../tool_settings.mdc)を先に更新してください
+2. 更新後は[tool_settings.mdc](mdc:../tool_settings.mdc)の「変更影響範囲チェックリスト」に従って、関連MDCファイルも更新してください
+3. 変更完了後はissues.mdの関連課題を更新してください
 
 ## 特記事項
 - ユーザからの個別指示がある場合は、そちらを優先してください

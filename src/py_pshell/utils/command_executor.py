@@ -72,9 +72,7 @@ class CommandExecutor:
                 execution_time=execution_time,
             )
 
-    async def run_script(
-        self, script: str, timeout: float | None = None
-    ) -> CommandResultProtocol:
+    async def run_script(self, script: str, timeout: float | None = None) -> CommandResultProtocol:
         """スクリプトを実行します。
 
         Args:

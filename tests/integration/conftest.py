@@ -208,9 +208,7 @@ def use_mock_sessions(monkeypatch):
     monkeypatch.setattr(PowerShellSession, "execute", mock_execute)
 
     # PowerShellControllerのモック
-    async def mock_run_command(
-        self, command: str, timeout: float | None = None
-    ) -> CommandResult:
+    async def mock_run_command(self, command: str, timeout: float | None = None) -> CommandResult:
         try:
             if not self.session:
                 self.session = PowerShellSession(settings=self.settings)

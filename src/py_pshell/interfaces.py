@@ -104,9 +104,7 @@ class PowerShellControllerProtocol(Protocol):
         """コマンドを実行し、結果を返す"""
         ...
 
-    async def run_script(
-        self, script: str, timeout: float | None = None
-    ) -> CommandResultProtocol:
+    async def run_script(self, script: str, timeout: float | None = None) -> CommandResultProtocol:
         """スクリプトを実行し、結果を返す"""
         ...
 

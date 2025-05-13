@@ -72,7 +72,7 @@ class TestJsonHandler:
 
     def test_parse_json_not_dict(self):
         """辞書でないJSONのパースをテスト（例外発生）"""
-        json_data = '[1, 2, 3]'  # 配列（辞書ではない）
+        json_data = "[1, 2, 3]"  # 配列（辞書ではない）
         command = "Get-Something | ConvertTo-Json"
 
         with pytest.raises(ValueError) as exc_info:
@@ -91,4 +91,4 @@ class TestJsonHandler:
 
         # エラーメッセージに元のデータが含まれているか
         assert "JSONの解析に失敗しました" in str(exc_info.value)
-        assert invalid_json in str(exc_info.value) 
+        assert invalid_json in str(exc_info.value)

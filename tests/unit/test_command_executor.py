@@ -127,27 +127,28 @@ class TestCommandExecutor:
     def test_get_or_create_loop(self, mock_session):
         """イベントループ作成のテスト"""
         # 実行中のループがない状態をモック
-        with patch('asyncio.get_running_loop', side_effect=RuntimeError), \
-             patch('threading.Thread') as mock_thread:
-            
+        with patch("asyncio.get_running_loop", side_effect=RuntimeError), patch(
+            "threading.Thread"
+        ) as mock_thread:
+
             # 新しいループを作成
             mock_loop = MagicMock()
             mock_loop.is_closed.return_value = False
-            
-            with patch('asyncio.new_event_loop', return_value=mock_loop):
+
+            with patch("asyncio.new_event_loop", return_value=mock_loop):
                 executor = CommandExecutor(mock_session)
-                
+
                 # 初回呼び出し
                 loop1 = executor._get_or_create_loop()
-                
+
                 # イベントループが作成されたか
                 assert loop1 == mock_loop
                 mock_thread.assert_called_once()
-                
+
                 # 2回目の呼び出し - 既存のループを再利用するはず
                 loop2 = executor._get_or_create_loop()
-                
+
                 # 同じループが返されるか
                 assert loop2 == mock_loop
                 # スレッドは1回だけ作成されるはず
-                assert mock_thread.call_count == 1 
+                assert mock_thread.call_count == 1

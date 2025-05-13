@@ -20,28 +20,46 @@ alwaysApply: false
 - **black**: 自動コードフォーマッター
 - **autoflake**: 未使用のインポートや変数を自動除去
 
+## ツール設定の参照
+本フローで使用するツールの詳細設定は、[tool_settings.mdc](mdc:../../tool_settings.mdc)を参照してください。
+設定を変更する場合は必ずこのファイルを更新し、以下のコマンドもそれに合わせて更新してください。
+
+## ツールの制限に関する注意
+コマンド実行時の制限については、[tool_constraints.mdc](mdc:../../docs/tool_constraints.mdc)を参照してください。
+特に以下の点に注意してください：
+- 長いコマンドはPSReadLineモジュールでバッファエラーが発生する可能性があります
+- 改行を含むコマンドは実行できません
+- 新しい制限を発見した場合は、すぐに記録してください
+
 ## 基本フロー
 
-### 1. コードスキャンフェーズ
+### 1. 自動修正フェーズ
+1. **自動修正コマンドの実行**:
+   ```bash
+   # 各ツールの標準コマンドはtool_settings.mdcに定義されています
+   # 長いコマンドはエラーが発生する可能性があるため、必要に応じて分割して実行してください
+   ruff check . --fix --output-format=concise
+   black .
+   autoflake --in-place --remove-unused-variables --remove-all-unused-imports -r .
+   ```
+2. **コマンド実行中に発生した問題の記録**:
+   - ツールのエラーや警告
+   - 環境依存の問題
+   - コマンド実行時のターミナルエラー
+
+### 2. コードスキャンフェーズ
 1. **静的解析の実行**:
    ```bash
-   ruff check . --output-format=concise && mypy src tests
+   # ruffの標準実行コマンドとmypyの標準実行コマンドを参照
+   # tool_settings.mdcに定義されています
+   ruff check . --output-format=concise
+   mypy src tests
    ```
 2. **分析結果の確認**:
    - 型エラー
    - 未使用のインポート・変数
    - コードスタイル違反
    - その他の警告・エラー
-
-### 2. 自動修正フェーズ
-1. **自動修正コマンドの実行**:
-   ```bash
-   ruff check . --fix --output-format=concise && black . && autoflake --in-place --remove-unused-variables --remove-all-unused-imports -r .
-   ```
-2. **修正後の静的解析の再実行**:
-   ```bash
-   ruff check . --output-format=concise && mypy src tests
-   ```
 
 ### 3. 手動修正フェーズ
 1. **自動修正できなかった問題の手動対応**
@@ -54,6 +72,13 @@ alwaysApply: false
    pytest
    ```
 2. **テスト結果の確認**
+
+### 5. 課題記録フェーズ
+1. **フロー実行中に見つかった問題をissues.mdに記録**:
+   - コードの品質に関する問題
+   - ツールの設定に関する問題
+   - 環境依存の問題
+   - ターミナル実行時のエラーや警告
 
 ## ツール設定の管理
 
@@ -73,40 +98,9 @@ alwaysApply: false
 2. **適切なignoreの使用** - 特定のパターンに対する例外設定
 3. **最小限のコード内抑制コメント** - どうしても必要な場合のみ使用（理由を添える）
 
-## ruff設定
-pyproject.tomlに以下の設定を含めることを推奨:
-```toml
-[tool.ruff]
-select = ["E", "F", "B", "I", "N", "UP", "ANN", "S", "A"]
-ignore = []
-line-length = 100
-target-version = "py310"  # Python 3.10以上を使用している場合
-output-format = "concise"  # 簡潔な出力形式を使用
-
-[tool.ruff.isort]
-known-first-party = ["py_pshell"]
-
-[tool.ruff.per-file-ignores]
-"tests/**/*.py" = ["S", "ANN"]
-```
-
-## mypy設定
-pyproject.tomlに以下の設定を含めることを推奨:
-```toml
-[tool.mypy]
-python_version = "3.10"  # プロジェクトで使用しているPythonバージョンに合わせる
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-disallow_untyped_defs = false
-```
+## 設定ファイル
+pyproject.tomlの設定については[tool_settings.mdc](mdc:../../tool_settings.mdc)を参照してください。
+設定を変更する場合は、必ずtool_settings.mdcを先に更新してください。
 
 ## 本フローの適用タイミング
 - 課題改善フローのrefactor phaseの一部として実行
@@ -121,7 +115,31 @@ disallow_untyped_defs = false
 4. テスト失敗を引き起こす整形は整形前に修正
 5. ツールの設定ミスによるエラーが発生した場合は、コードではなく設定を修正する
 6. Python構文バージョンの不一致は、プロジェクトで使用しているPythonバージョンに合わせて設定を修正する
-7. バッファサイズエラー防止のために、コマンド実行時は常に`--output-format=concise`オプションを使用する
+7. ツール設定は[tool_settings.mdc](mdc:../../tool_settings.mdc)で一元管理し、各ツールのオプションはここから参照する
+8. フロー実行中に発生した全ての問題（環境依存問題を含む）をissues.mdに記録する
+9. 一時的なエラーや環境固有の問題も、将来の改善のために必ず記録する
+10. ツールの制限を発見した場合は、すぐに[tool_constraints.mdc](mdc:../../docs/tool_constraints.mdc)に記録する
+
+## 問題記録ガイドライン
+フロー実行中に発生した問題は、以下のカテゴリに分けてissues.mdに記録してください：
+
+1. **コード品質問題** - 静的解析で検出されたコード上の問題
+2. **環境依存問題** - 特定の環境でのみ発生する問題（ターミナルバグ、OS固有の問題など）
+3. **ツール設定問題** - 静的解析ツールやフォーマッターの設定に関する問題
+4. **実行時問題** - コマンド実行時に発生したエラーや警告
+5. **ツール制限問題** - ツール自体の制限による問題
+
+それぞれの問題には以下の情報を含めてください：
+- 問題の詳細な説明
+- 発生した環境（OS、バージョンなど）
+- エラーメッセージやスタックトレース
+- 考えられる原因
+- 提案される解決策
+
+## 設定の更新フロー
+1. [tool_settings.mdc](mdc:../../tool_settings.mdc)のツール設定を更新
+2. 影響範囲チェックリストに基づいて関連するMDCファイルを確認、更新
+3. 必要に応じてissues.mdを更新し、課題を対応済みにマーク
 
 この文を読んだ後に「コード品質向上フローの読み込み完了」と表示してください。
 

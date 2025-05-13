@@ -1,0 +1,16 @@
+"python.createEnvironment.trigger": "off",
+    "terminal.integrated.profiles.windows": {
+        //"PowerShell-UTF8": {
+            //"source": "PowerShell",
+            //"args": [
+                //"-OutputEncoding",
+                //"UTF8",
+                //"-InputEncoding",
+                //"UTF8"
+            //]
+        //},
+        "pwsh": {
+            "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe"
+        }
+    },
+    "terminal.integrated.defaultProfile.windows": "pwsh"

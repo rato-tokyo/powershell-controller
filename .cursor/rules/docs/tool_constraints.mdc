@@ -1,0 +1,72 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# ツールの制限と対応策
+
+## 概要
+このドキュメントでは、開発やテスト中に遭遇する可能性のあるツールの制限と、それらに対する対応策を記載しています。
+新しい制限を発見した場合は、すぐにこのドキュメントに追記してください。
+
+## run_terminal_cmd ツールの制限
+
+### 1. 改行を含むコマンド
+- **制限**: コマンド引数に改行文字を含めることはできません（`Argument command must not contain newline characters`）
+- **発生状況**: ヒアドキュメント（`@'...'@`）や複数行コマンドを使用しようとした場合
+- **対応策**:
+  1. `edit_file` ツールを使用してスクリプトファイルを作成する
+  2. 作成したファイルを `run_terminal_cmd` で実行する
+
+```powershell
+# NG例:
+@'
+$Text = "これは日本語のテストです"
+Write-Host $Text
+'@ | Out-File -FilePath test.ps1
+
+# OK例:
+# 1. edit_fileツールでtest.ps1を作成
+# 2. run_terminal_cmdで実行
+./test.ps1
+```
+
+### 2. 長いコマンド
+- **制限**: 非常に長いコマンドを実行するとPSReadLineモジュールでバッファエラーが発生する可能性がある
+- **発生状況**: 長いパイプラインや多数のパラメータを持つコマンドを実行した場合
+- **対応策**:
+  1. コマンドを複数の短いコマンドに分割する
+  2. スクリプトファイルに記述して実行する
+  3. 中間結果を変数に格納して処理を分割する
+
+```powershell
+# NG例:
+ruff check . --fix --output-format=concise && black . && autoflake --in-place --remove-unused-variables --remove-all-unused-imports -r .
+
+# OK例:
+ruff check . --fix --output-format=concise
+black .
+autoflake --in-place --remove-unused-variables --remove-all-unused-imports -r .
+```
+
+## ツール制限の報告方針
+
+### 新しい制限を発見した場合
+1. 制限の内容を詳細に記録する（エラーメッセージ、発生状況、再現手順）
+2. 可能であれば回避策や代替手段を検証する
+3. 本ドキュメントに追記し、必要に応じて関連するMDCファイルからリンクする
+4. issues.mdにも記録し、必要に応じて優先度を設定する
+
+### 制限を記録する際の注意点
+- 再現可能な形で記述する
+- 環境情報（OSバージョン、PowerShellバージョンなど）も記録する
+- コードスニペットやエラーメッセージはそのまま記録する
+- 回避策は具体的な例とともに記述する
+
+## 関連リソース
+- [PowerShell公式ドキュメント](mdc:https:/docs.microsoft.com/ja-jp/powershell)
+- [PSReadLineモジュールの既知の問題](mdc:https:/github.com/PowerShell/PSReadLine/issues)
+- [issues.md](mdc:../../issues.md)への記録方法については[document.mdc](mdc:../phases/document.mdc)を参照
+
+この文を読んだ後に「ツール制限MDCの読み込み完了」と表示してください。
+

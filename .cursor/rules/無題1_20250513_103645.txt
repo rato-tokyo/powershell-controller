@@ -1,0 +1,29 @@
+ターミナルで問題が発生したのはなぜですか？また、私に改善ができそうな問題であれば、なぜissues.mdに記載されなかったのでしょうか？もし私に解決できる可能性がある問題であれば、今後は直ちにissues.mdに記載知るよう、mdcを改善してほしいです。
+
+
+System.ArgumentOutOfRangeException: The value must be greater than or equal to zero and less than the console's buffer size in that dimension.
+
+Install-Module PSReadLine -Force -SkipPublisherCheck:contentReference[oaicite:40]{index=40}
+
+
+
+PS C:\Users\root\Desktop\project\git\powershell_controller> $PROFILE                                                                    
+C:\Users\root\Documents\PowerShell\Microsoft.PowerShell_profile.ps1
+
+
+PS C:\Users\root\Desktop\project\git\powershell_controller> Get-Content -Path "C:\Users\root\Documents\PowerShell\Microsoft.PowerShell_profile.ps1" -Encoding UTF8
+>>
+try {
+    if ($Host.UI.RawUI -and $Host.UI.RawUI.BufferSize -ne $null) {
+        $bufferSize = $Host.UI.RawUI.BufferSize
+        $bufferSize.Width = 200
+        $bufferSize.Height = 5000
+        $Host.UI.RawUI.BufferSize = $bufferSize
+    }
+} catch {
+    Write-Host "バッファサイズ設定をスキップ：$($_.Exception.Message)"
+}
+
+# PowerShell 7のPSReadLineを優先的に使う設定
+$env:PSModulePath = "C:\Program Files\PowerShell\7\Modules;" + $env:PSModulePath
+Import-Module PSReadLine -RequiredVersion 2.3.6 -Force

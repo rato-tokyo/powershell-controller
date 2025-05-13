@@ -32,6 +32,7 @@ alwaysApply: true
 
 ### 環境設定
 - 開発環境のセットアップ: [environment.mdc](mdc:environment.mdc)
+- ツールの制限と対応策: [tool_constraints.mdc](mdc:tool_constraints.mdc)
 
 ### テスト規約
 - Pythonテストのルール: [python_test.mdc](mdc:python_test.mdc)
@@ -78,6 +79,7 @@ alwaysApply: true
 - ユーザからの個別指示がある場合は、そちらを優先してください
 - 各フェーズの開始時・終了時には必ず宣言を行ってください
 - プロジェクトの課題一覧は[issues.md](mdc:../../issues.md)を参照してください
+- ツールの制限を新たに発見した場合は、直ちに[tool_constraints.mdc](mdc:tool_constraints.mdc)に記録してください
 
 ## 関連MDC
 特定のフローを開始する場合、以下のフローテンプレートを参照してください：
