@@ -16,7 +16,10 @@ function Start-MDCTask {
         [string]$TaskType,
         
         [Parameter(Position = 1, Mandatory = $false)]
-        [string]$Description = ""
+        [string]$Description = "",
+
+        [Parameter(Position = 2, Mandatory = $false)]
+        [switch]$AIAssist = $false
     )
     
     # 作業タイプに応じたMDCテンプレートパスを決定
@@ -70,6 +73,165 @@ function Start-MDCTask {
     Write-Host "【MDCファースト】$TaskType タイプの作業を $mdcPath から開始します" -ForegroundColor Cyan
     Write-Host "MDCファイルを編集し、作業内容を定義した後で実装を開始してください。" -ForegroundColor Cyan
     Write-Host "エラーが発生した場合は Record-MDCError コマンドを使用してください。" -ForegroundColor Yellow
+
+    # AIアシスト機能が有効な場合、AIに作業支援を依頼
+    if ($AIAssist) {
+        Invoke-AIAssist -TaskType $TaskType -Description $Description -MDCPath $mdcPath
+    }
+}
+
+function Invoke-AIAssist {
+    [CmdletBinding()]
+    param(
+        [Parameter(Position = 0, Mandatory = $true)]
+        [string]$TaskType,
+        
+        [Parameter(Position = 1, Mandatory = $true)]
+        [string]$Description,
+        
+        [Parameter(Position = 2, Mandatory = $true)]
+        [string]$MDCPath,
+        
+        [Parameter(Position = 3, Mandatory = $false)]
+        [ValidateSet("mdc_only", "implementation", "full")]
+        [string]$AssistLevel = "mdc_only"
+    )
+    
+    Write-Host "【AI支援】$TaskType タイプの作業に対するAI支援を開始します..." -ForegroundColor Magenta
+    
+    # AIスクリプトのパスを特定
+    $aiScriptPath = Join-Path $PSScriptRoot "ai_assist.ps1"
+    
+    if (-not (Test-Path $aiScriptPath)) {
+        Write-Warning "AIアシストスクリプトが見つかりません: $aiScriptPath"
+        Write-Host "AI支援機能を使用するには、ai_assist.ps1を作成してください。" -ForegroundColor Yellow
+        Write-Host "詳細は README.md の「AIとのハイブリッドモデル」セクションを参照してください。" -ForegroundColor Yellow
+        return
+    }
+    
+    # AIスクリプトを実行
+    try {
+        & $aiScriptPath -TaskType $TaskType -Description $Description -MDCPath $MDCPath -AssistLevel $AssistLevel
+    } catch {
+        Write-Error "AIアシスト実行中にエラーが発生しました: $_"
+    }
+}
+
+function Generate-AIMDC {
+    [CmdletBinding()]
+    param(
+        [Parameter(Position = 0, Mandatory = $true)]
+        [ValidateSet("bug", "feature", "refactor", "quality", "mdc", "test")]
+        [string]$TaskType,
+        
+        [Parameter(Position = 1, Mandatory = $true)]
+        [string]$Description,
+        
+        [Parameter(Position = 2, Mandatory = $false)]
+        [string]$OutputPath = ""
+    )
+    
+    # 出力パスが指定されていない場合、一時ファイルを作成
+    if ([string]::IsNullOrEmpty($OutputPath)) {
+        $tempFolder = Join-Path $env:TEMP "MDCFirst"
+        if (-not (Test-Path $tempFolder)) {
+            New-Item -Path $tempFolder -ItemType Directory | Out-Null
+        }
+        $OutputPath = Join-Path $tempFolder "ai_generated_mdc_$(Get-Date -Format 'yyyyMMdd_HHmmss').md"
+    }
+    
+    Write-Host "【AI生成】$TaskType タイプのMDCをAIに生成させています..." -ForegroundColor Magenta
+    
+    # AIスクリプトのパスを特定
+    $aiScriptPath = Join-Path $PSScriptRoot "ai_mdc_generator.ps1"
+    
+    if (-not (Test-Path $aiScriptPath)) {
+        Write-Warning "AI MDC生成スクリプトが見つかりません: $aiScriptPath"
+        Write-Host "AI MDC生成機能を使用するには、ai_mdc_generator.ps1を作成してください。" -ForegroundColor Yellow
+        Write-Host "詳細は README.md の「AIとのハイブリッドモデル」セクションを参照してください。" -ForegroundColor Yellow
+        return ""
+    }
+    
+    # AIスクリプトを実行してMDCを生成
+    try {
+        & $aiScriptPath -TaskType $TaskType -Description $Description -OutputPath $OutputPath
+        
+        if (Test-Path $OutputPath) {
+            Write-Host "AIによるMDC生成が完了しました: $OutputPath" -ForegroundColor Green
+            return $OutputPath
+        } else {
+            Write-Warning "AIによるMDC生成に失敗しました。"
+            return ""
+        }
+    } catch {
+        Write-Error "AI MDC生成中にエラーが発生しました: $_"
+        return ""
+    }
+}
+
+function Start-AIPlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Position = 0, Mandatory = $true)]
+        [ValidateSet("contract", "red", "green", "document", "refactor")]
+        [string]$Phase,
+        
+        [Parameter(Position = 1, Mandatory = $false)]
+        [string]$MDCPath = "",
+        
+        [Parameter(Position = 2, Mandatory = $false)]
+        [switch]$Execute = $false
+    )
+    
+    Write-Host "【AI計画】$Phase フェーズの実行計画をAIに作成させています..." -ForegroundColor Magenta
+    
+    # AIスクリプトのパスを特定
+    $aiScriptPath = Join-Path $PSScriptRoot "ai_planner.ps1"
+    
+    if (-not (Test-Path $aiScriptPath)) {
+        Write-Warning "AI計画スクリプトが見つかりません: $aiScriptPath"
+        Write-Host "AI計画機能を使用するには、ai_planner.ps1を作成してください。" -ForegroundColor Yellow
+        Write-Host "詳細は README.md の「AIとのハイブリッドモデル」セクションを参照してください。" -ForegroundColor Yellow
+        return
+    }
+    
+    # AIスクリプトを実行して計画を生成・実行
+    try {
+        & $aiScriptPath -Phase $Phase -MDCPath $MDCPath -Execute:$Execute
+    } catch {
+        Write-Error "AI計画中にエラーが発生しました: $_"
+    }
+}
+
+function Execute-AIImplementation {
+    [CmdletBinding()]
+    param(
+        [Parameter(Position = 0, Mandatory = $true)]
+        [string]$PlanPath,
+        
+        [Parameter(Position = 1, Mandatory = $false)]
+        [ValidateSet("interactive", "automatic", "review_only")]
+        [string]$Mode = "interactive"
+    )
+    
+    Write-Host "【AI実装】計画に基づく実装をAIに行わせています..." -ForegroundColor Magenta
+    
+    # AIスクリプトのパスを特定
+    $aiScriptPath = Join-Path $PSScriptRoot "ai_implementer.ps1"
+    
+    if (-not (Test-Path $aiScriptPath)) {
+        Write-Warning "AI実装スクリプトが見つかりません: $aiScriptPath"
+        Write-Host "AI実装機能を使用するには、ai_implementer.ps1を作成してください。" -ForegroundColor Yellow
+        Write-Host "詳細は README.md の「AIとのハイブリッドモデル」セクションを参照してください。" -ForegroundColor Yellow
+        return
+    }
+    
+    # AIスクリプトを実行して実装を行う
+    try {
+        & $aiScriptPath -PlanPath $PlanPath -Mode $Mode
+    } catch {
+        Write-Error "AI実装中にエラーが発生しました: $_"
+    }
 }
 
 function Record-MDCError {
@@ -257,6 +419,12 @@ Set-Alias -Name mdc-update -Value Update-MDCRecord
 Set-Alias -Name mdc-trap -Value Add-ErrorTrap
 Set-Alias -Name mdc-untrap -Value Remove-ErrorTrap
 
+# AIハイブリッドコマンドのエイリアス
+Set-Alias -Name mdc-ai-task -Value Start-MDCTask # -AIAssist:$true を追加で指定
+Set-Alias -Name mdc-ai-gen -Value Generate-AIMDC
+Set-Alias -Name mdc-ai-plan -Value Start-AIPlan
+Set-Alias -Name mdc-ai-impl -Value Execute-AIImplementation
+
 # カスタムプロンプト：現在のMDC作業状態を表示
 function prompt {
     # 現在のプロジェクトルートディレクトリを取得
@@ -301,9 +469,10 @@ function prompt {
 # スクリプトロード時のウェルカムメッセージ
 Write-Host @"
 ========================================================
- MDCファーストアプローチ v1.0 - PowerShell統合
+ MDCファーストアプローチ v2.0 - PowerShell統合
+ ハイブリッドAIモデル対応
 ========================================================
- 使用可能コマンド:
+ 基本コマンド:
  - mdc-task <タイプ> [説明]  : MDC起点で作業開始
    タイプ: bug, feature, refactor, quality, mdc, test
  - mdc-error <コマンド> [説明]: エラーを記録
@@ -311,6 +480,12 @@ Write-Host @"
  - mdc-update <課題> [状態]   : 課題状態を更新
  - mdc-trap                  : エラートラップ有効化
  - mdc-untrap                : エラートラップ無効化
+
+ AIハイブリッドコマンド:
+ - mdc-ai-task <タイプ> [説明] : AI支援付きで作業開始
+ - mdc-ai-gen <タイプ> <説明>  : AIにMDCを生成させる
+ - mdc-ai-plan <フェーズ> [MDC]: AIに実行計画を立てさせる
+ - mdc-ai-impl <計画ファイル>  : AIに実装を行わせる
 ========================================================
 "@ -ForegroundColor Cyan
 

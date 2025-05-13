@@ -3,7 +3,9 @@ description:
 globs: 
 alwaysApply: true
 ---
-# プロジェクトルール（Main）
+# プロジェクトルール（Main）- 参照用
+
+**注意: このファイルは参照用です。実際のプロジェクトルールには `flows/main.mdc` を使用してください。**
 
 ## 開発環境
 - Windows 11
@@ -11,14 +13,14 @@ alwaysApply: true
 
 ## 基本方針
 マニュアル参照方式を採用します。以前使用していたRAIL方針からの移行途中です。
-- マニュアル参照方式: [manual_reference.mdc](mdc:policies/manual_reference.mdc)
+- マニュアル参照方式: [manual_reference.mdc](mdc:../docs/manual_reference.mdc)
 - 過去の方針（参考）:
-  - RAIL方針: [rail.mdc](mdc:policies/rail.mdc)
-  - flow-phase方針: [flow-phase.mdc](mdc:policies/flow-phase.mdc)
+  - RAIL方針: [rail.mdc](mdc:../docs/rail.mdc)
+  - flow-phase方針: [flow-phase.mdc](mdc:../docs/flow_phase.mdc)
 
 ## MDC構造
 プロジェクトのMDC（Markdown Cursor）ファイル構造は以下のメタモデルに従って整理されています：
-- MDCメタモデル: [mdc_metamodel.mdc](mdc:mdc_metamodel.mdc)
+- MDCメタモデル: [mdc_metamodel.mdc](mdc:../docs/mdc_metamodel.mdc)
 
 MDCメタモデルは各ファイルの役割と責任範囲、および新しい情報の適切な配置場所を定義しています。新しい情報を追加する際は、まずこのメタモデルを参照してください。
 
@@ -26,84 +28,85 @@ MDCメタモデルは各ファイルの役割と責任範囲、および新し�
 必要に応じて以下のルールを手動で参照してください。参照が必要な場合は「[参照MDC: ファイル名]」の形式でリクエストします。
 
 ### 新規セッション
-- 新規セッション開始直後: [init.mdc](mdc:init.mdc)
+- 新規セッション開始直後: [init.mdc](mdc:../docs/init.mdc)
 
 ### フロー概要
-- フローの全体像: [flow_overview.mdc](mdc:flow_overview.mdc)
-- フロー実行ガイド: [flow_execution.mdc](mdc:flow_execution.mdc)
+- フローの全体像: [flow_overview.mdc](mdc:../flow_overview.mdc)
+- フロー実行ガイド: [flow_execution.mdc](mdc:../docs/flow_execution.mdc)
 
 ### フローテンプレート
-- 仕様変更フロー: [requirements_change.mdc](mdc:flow_templates/requirements_change.mdc)
-- 課題改善フロー: [issue_improvement.mdc](mdc:flow_templates/issue_improvement.mdc)
+- 仕様変更フロー: [requirements_change.mdc](mdc:../flows/main/requirements_change.mdc)
+- 課題改善フロー: [issue_improvement.mdc](mdc:../flows/main/issue_improvement.mdc)
 
 ### 環境設定
-- 開発環境のセットアップ: [environment.mdc](mdc:environment.mdc)
-- ツールの制限と対応策: [tool_constraints.mdc](mdc:tool_constraints.mdc)
+- 開発環境のセットアップ: [environment.mdc](mdc:../environment.mdc)
+- ツール設定（全ツールの設定を一元管理）: [tool_settings.mdc](mdc:../tool_settings.mdc)
+- ツールの制限と対応策: [tool_constraints.mdc](mdc:../docs/tool_constraints.mdc)
 
 ### テスト規約
-- Pythonテストのルール: [python_test.mdc](mdc:python_test.mdc)
+- Pythonテストのルール: [python_test.mdc](mdc:../python_test.mdc)
 
 ### コード品質
-- コード品質向上フロー: [code_quality.mdc](mdc:code_quality.mdc)
-- MDC整合性確認フロー: [mdc_check.mdc](mdc:mdc_check.mdc)
+- コード品質向上フロー: [code_quality.mdc](mdc:../flows/main/code_quality.mdc)
+- MDC整合性確認フロー: [mdc_check.mdc](mdc:../flows/main/mdc_check.mdc)
 
 ### 仕様変更フロー
-1. contract phase: [contract.mdc](mdc:phases/contract.mdc)
-2. red phase: [red.mdc](mdc:phases/red.mdc)
-3. green phase: [green.mdc](mdc:phases/green.mdc)
-4. document phase: [document.mdc](mdc:phases/document.mdc)
+1. contract phase: [contract.mdc](mdc:../flows/phases/contract.mdc)
+2. red phase: [red.mdc](mdc:../flows/phases/red.mdc)
+3. green phase: [green.mdc](mdc:../flows/phases/green.mdc)
+4. document phase: [document.mdc](mdc:../flows/phases/document.mdc)
 
 ### 課題改善フロー
-1. refactor phase: [refactor.mdc](mdc:phases/refactor.mdc)
-2. green phase: [green.mdc](mdc:phases/green.mdc)
-3. document phase: [document.mdc](mdc:phases/document.mdc)
+1. refactor phase: [refactor.mdc](mdc:../flows/phases/refactor.mdc)
+2. green phase: [green.mdc](mdc:../flows/phases/green.mdc)
+3. document phase: [document.mdc](mdc:../flows/phases/document.mdc)
 
 ## 実行可能なフローMDC
 チャットでコンテキストとして添付し、フローとして実行させることができるMDCファイルは以下の通りです。
 これらのファイルは `<required_instructions>` タグで囲んで添付できます：
 
 ### メインフロー（完全なフロー）
-- [requirements_change.mdc](mdc:flow_templates/requirements_change.mdc): 仕様変更フロー
-- [issue_improvement.mdc](mdc:flow_templates/issue_improvement.mdc): 課題改善フロー
-- [code_quality.mdc](mdc:code_quality.mdc): コード品質向上フロー
-- [mdc_check.mdc](mdc:mdc_check.mdc): MDC整合性確認フロー
+- [requirements_change.mdc](mdc:../flows/main/requirements_change.mdc): 仕様変更フロー
+- [issue_improvement.mdc](mdc:../flows/main/issue_improvement.mdc): 課題改善フロー
+- [code_quality.mdc](mdc:../flows/main/code_quality.mdc): コード品質向上フロー
+- [mdc_check.mdc](mdc:../flows/main/mdc_check.mdc): MDC整合性確認フロー
 
 ### 個別フェーズ（部分的なフロー）
-- [contract.mdc](mdc:phases/contract.mdc): 契約フェーズ
-- [red.mdc](mdc:phases/red.mdc): テスト作成フェーズ
-- [green.mdc](mdc:phases/green.mdc): 実装フェーズ
-- [document.mdc](mdc:phases/document.mdc): ドキュメントフェーズ
-- [refactor.mdc](mdc:phases/refactor.mdc): リファクタリングフェーズ
+- [contract.mdc](mdc:../flows/phases/contract.mdc): 契約フェーズ
+- [red.mdc](mdc:../flows/phases/red.mdc): テスト作成フェーズ
+- [green.mdc](mdc:../flows/phases/green.mdc): 実装フェーズ
+- [document.mdc](mdc:../flows/phases/document.mdc): ドキュメントフェーズ
+- [refactor.mdc](mdc:../flows/phases/refactor.mdc): リファクタリングフェーズ
 
 ### 基本設定（常時必要）
-- [main.mdc](mdc:main.mdc): 基本ルール（常に最初に添付）
+- [main.mdc](mdc:../flows/main.mdc): 基本ルール（常に最初に添付）
 
 ### フロー実行方法の詳細
-フローMDCの添付方法と実行方法の詳細については、[flow_execution.mdc](mdc:flow_execution.mdc)を参照してください。
+フローMDCの添付方法と実行方法の詳細については、[flow_execution.mdc](mdc:../docs/flow_execution.mdc)を参照してください。
 
 ## 特記事項
 - ユーザからの個別指示がある場合は、そちらを優先してください
 - 各フェーズの開始時・終了時には必ず宣言を行ってください
 - プロジェクトの課題一覧は[issues.md](mdc:../../issues.md)を参照してください
-- ツールの制限を新たに発見した場合は、直ちに[tool_constraints.mdc](mdc:tool_constraints.mdc)に記録してください
-- 一時ファイルは[environment.mdc](mdc:environment.mdc)に定義された管理ルールに従って作成・削除してください
-- 新しい情報を追加する際は、[mdc_metamodel.mdc](mdc:mdc_metamodel.mdc)を参照して適切な配置場所を選択してください
-- 情報の配置場所に迷った場合は、[mdc_metamodel.mdc](mdc:mdc_metamodel.mdc)の「新しい情報の追加手順」を参照してください
+- ツールの制限を新たに発見した場合は、直ちに[tool_constraints.mdc](mdc:../docs/tool_constraints.mdc)に記録してください
+- 一時ファイルは[environment.mdc](mdc:../environment.mdc)に定義された管理ルールに従って作成・削除してください
+- 新しい情報を追加する際は、[mdc_metamodel.mdc](mdc:../docs/mdc_metamodel.mdc)を参照して適切な配置場所を選択してください
+- 情報の配置場所に迷った場合は、[mdc_metamodel.mdc](mdc:../docs/mdc_metamodel.mdc)の「新しい情報の追加手順」を参照してください
 
 ## 関連MDC
 特定のフローを開始する場合、以下のフローテンプレートを参照してください：
 
 ### 仕様変更フロー開始時
-- [requirements_change.mdc](mdc:flow_templates/requirements_change.mdc)
+- [requirements_change.mdc](mdc:../flows/main/requirements_change.mdc)
 
 ### 課題改善フロー開始時
-- [issue_improvement.mdc](mdc:flow_templates/issue_improvement.mdc)
+- [issue_improvement.mdc](mdc:../flows/main/issue_improvement.mdc)
 
 ### コード品質向上時
-- [code_quality.mdc](mdc:code_quality.mdc)
+- [code_quality.mdc](mdc:../flows/main/code_quality.mdc)
 
 ### MDC整合性確認時
-- [mdc_check.mdc](mdc:mdc_check.mdc)
+- [mdc_check.mdc](mdc:../flows/main/mdc_check.mdc)
 
 この文を読んだ後に「main.mdcの読み込み完了」と表示してください。
 

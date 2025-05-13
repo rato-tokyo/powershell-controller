@@ -53,13 +53,13 @@ MDCファーストアプローチは以下のコンポーネントで実装さ�
 
 | 問題タイプ | 参照すべきMDC | 次に参照すべきMDC | 記録場所 |
 |---|-----|----|----|
-| PowerShellコマンド実行エラー | `docs/tool_constraints.mdc` | `MDC_structure_guidelines.md` | `issues.md` (環境依存の問題) |
+| PowerShellコマンド実行エラー | `docs/tool_constraints.mdc` | - | `issues.md` (環境依存の問題) |
 | PSReadLineモジュール関連エラー | `docs/tool_constraints.mdc` | - | `issues.md` (環境依存の問題) |
 | ツールの制限に関するエラー | `docs/tool_constraints.mdc` | - | `issues.md` (環境依存の問題) |
 | 型チェックエラー | `python_test.mdc` | - | `issues.md` (優先度の高い課題) |
 | テスト失敗 | `python_test.mdc` | `flows/phases/red.mdc` | `issues.md` (優先度の高い課題) |
 | コードベースとMDCの不整合 | `docs/mdc_metamodel.mdc` | `flows/main/mdc_check.mdc` | `issues.md` (優先度の高い課題) |
-| MDCルール違反 | `MDC_structure_guidelines.md` | `flows/main/mdc_check.mdc` | `issues.md` (優先度の高い課題) |
+| MDCルール違反 | `docs/mdc_metamodel.mdc` | `flows/main/mdc_check.mdc` | `issues.md` (優先度の高い課題) |
 
 ## 情報追加・更新時
 
@@ -91,7 +91,7 @@ MDCファーストアプローチは以下のコンポーネントで実装さ�
 | MDC整合性確保 | `flows/main/mdc_check.mdc` | `issues.md` (該当課題) |
 | PowerShellコマンド互換性 | `docs/tool_constraints.mdc` | `issues.md` (該当課題) |
 | 型チェッカーエラー解消 | `python_test.mdc` | `issues.md` (該当課題) |
-| 空フォルダ管理 | `MDC_structure_guidelines.md` | `issues.md` (該当課題) |
+| 空フォルダ管理 | `docs/mdc_metamodel.mdc` | `issues.md` (該当課題) |
 
 ## 緊急時の最小記録テンプレート
 
@@ -190,11 +190,11 @@ MDCファーストアプローチでは以下の自動記録メカニズムが�
 
 | タイミング | 参照すべきMDC | 目的 |
 |-----|-----|---|
-| セッション開始時 | `docs/init.mdc`, `docs/main.mdc` | 基本ルールの確認 |
+| セッション開始時 | `docs/init.mdc`, `flows/main.mdc` | 基本ルールの確認 |
 | 新しいフロー開始時 | `flow_overview.mdc`, 該当するフローMDC | フローの詳細確認 |
 | フェーズ開始時 | 該当するフェーズMDC | フェーズの詳細確認 |
 | エラー発生時 | `docs/tool_constraints.mdc` | 既知の問題確認 |
-| MDC更新時 | `MDC_structure_guidelines.md` | MDC更新ルールの確認 |
+| MDC更新時 | `docs/mdc_metamodel.mdc` | MDC更新ルールの確認 |
 
 ## インデックス使用方法
 
@@ -216,6 +216,8 @@ MDCファーストアプローチでは以下の自動記録メカニズムが�
 このインデックスは定期的に更新され、新しいMDCが追加された場合や参照関係が変更された場合には速やかに反映されます。
 
 このMDCを読んだ後は「MDC参照インデックスを読み込みました」と表示してください。
+
+
 
 
 

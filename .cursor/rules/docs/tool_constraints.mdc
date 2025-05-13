@@ -178,6 +178,110 @@ autoflake --in-place --remove-unused-variables --remove-all-unused-imports -r .
 
 この文を読んだ後に「tool_constraints.mdcの更新完了」と表示してください。
 
+## PowerShellコマンド実行時の制限
+
+### PSReadLineモジュールのIndexOutOfRangeException
+
+**問題内容**:
+長いコマンドライン入力時に、`System.IndexOutOfRangeException: Index was outside the bounds of the array`というエラーが発生し、コマンドが正常に実行できない。
+
+**発生状況**:
+- 特に長い文字列をechoコマンドで出力する際に発生
+- 複数行のテキストを含むコマンド実行時に発生
+- バッククォート（`）を使った改行文字を含むコマンドで頻発
+
+**エラーメッセージ例**:
+```
+System.IndexOutOfRangeException: Index was outside the bounds of the array.
+   at System.Text.StringBuilder.get_Chars(Int32 index)
+   at Microsoft.PowerShell.PSConsoleReadLine.ConvertOffsetToPoint(Int32 offset)
+   at Microsoft.PowerShell.PSConsoleReadLine.ReallyRender(RenderData renderData, String defaultColor)
+```
+
+**対応策**:
+1. 長いコマンドは分割して実行する
+2. ヒアドキュメント構文を使用する:
+   ```powershell
+   @"
+   複数行の
+   テキスト
+   "@ | Out-File -FilePath "output.txt"
+   ```
+3. テキストファイルを事前に作成し、Get-Contentで読み込む
+4. スクリプトファイルに長いコマンドを記述して実行する
+
+**回避策（恒久対応）**:
+- PSReadLineモジュールのバージョンアップデートを検討
+- PowerShell 7の最新版へのアップデート
+- WindowsターミナルなどPSReadLineの動作が安定する別のターミナルエミュレータの使用
+
+**記録日**: 2025-05-13
+**記録者**: MDCファーストアプローチ改善タスク
+
+---
+
+### UNIX互換コマンドの制限
+
+**問題内容**:
+UNIX系のコマンド（例: `rm -rf folder`）はPowerShellでは直接使えない場合がある。
+
+**発生状況**:
+- UNIXコマンドをそのままPowerShellで実行した場合
+
+**対応策**:
+- PowerShellネイティブコマンドを使用する:
+  - `rm -rf folder` → `Remove-Item -Recurse -Force folder`
+  - `ls -la` → `Get-ChildItem -Force`
+  - `mkdir -p path/to/dir` → `New-Item -Path "path/to/dir" -ItemType Directory -Force`
+
+**回避策**:
+- コマンドエイリアスの設定: `Set-Alias -Name rm -Value Remove-Item`
+- PowerShell 7以上ではUNIX互換性が向上しているため最新版を使用する
+
+**記録日**: 2025-04-10
+**記録者**: 開発環境設定チーム
+
+---
+
+## 既知の環境依存問題
+
+### 一時ファイル作成制限
+
+**問題内容**:
+特定のパスに一時ファイルを作成できないケースがある
+
+**発生状況**:
+- アクセス権限の制限されたフォルダに書き込もうとした場合
+- パスが存在しない場合
+- パス名に無効な文字が含まれる場合
+
+**エラーメッセージ例**:
+```
+Out-File: Could not find a part of the path 'C:\Users\root\Desktop\project\git\powershell_controller\scripts\.cursor\rules\mdc_cleanup_report.md'.
+```
+
+**対応策**:
+1. 事前にパスの存在を確認する:
+   ```powershell
+   if (-not (Test-Path $directoryPath)) {
+       New-Item -Path $directoryPath -ItemType Directory -Force
+   }
+   ```
+2. 環境変数 `$env:TEMP` を利用して一時ファイルを作成する
+3. Try-Catchブロックでエラーハンドリングする
+
+**回避策**:
+- 一時ファイルの保存場所をプロジェクト設定で定義し、一貫して使用する
+- `environment.mdc` に定義された一時ファイル管理ルールに従う
+
+**記録日**: 2025-05-13
+**記録者**: MDCファーストアプローチ改善タスク
+
+---
+
+*このファイルは継続的に更新されます。新しいツール制限を発見した場合は、適切な形式で追記してください。*
+
+
 
 
 
