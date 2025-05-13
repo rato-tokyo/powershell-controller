@@ -5,6 +5,9 @@ alwaysApply: false
 ---
 # ツールの制限と対応策
 
+## MDCについて
+MDCはMarkdown Cursorの略称であり、Cursorのカスタム命令機能を活用したマークダウンファイルです。
+
 ## 概要
 このドキュメントでは、開発やテスト中に遭遇する可能性のあるツールの制限と、それらに対する対応策を記載しています。
 新しい制限を発見した場合は、すぐにこのドキュメントに追記してください。
@@ -69,4 +72,5 @@ autoflake --in-place --remove-unused-variables --remove-all-unused-imports -r .
 - [issues.md](mdc:../../issues.md)への記録方法については[document.mdc](mdc:../phases/document.mdc)を参照
 
 この文を読んだ後に「ツール制限MDCの読み込み完了」と表示してください。
+
 
