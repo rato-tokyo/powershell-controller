@@ -73,4 +73,111 @@ autoflake --in-place --remove-unused-variables --remove-all-unused-imports -r .
 
 この文を読んだ後に「ツール制限MDCの読み込み完了」と表示してください。
 
+## PowerShell関連の制限
+
+### PSReadLineモジュールのバグ
+
+1. **ArgumentOutOfRangeException**
+   - 問題: コマンド実行時にPSReadLineモジュールでArgumentOutOfRangeExceptionが発生
+   - 発生環境: Windows 10.0.26100, PowerShell 7.5.1, PSReadLine 2.3.6
+   - エラーメッセージ:
+     ```
+     System.ArgumentOutOfRangeException: The value must be greater than or equal to zero and less than the console's buffer size in that dimension.
+     ```
+   - 推定原因: コンソールのバッファサイズを超える操作やバッファ位置の計算ミスがPSReadLineモジュールで発生
+   - 回避策:
+     - 長いコマンドを複数の短いコマンドに分割して実行する
+     - スクリプトファイルを使用してコマンドを実行する
+     - PSReadLineモジュールの更新またはダウングレードを検討する
+     - コマンド実行用のラッパー関数を作成し、エラーハンドリングを追加する
+
+2. **InvalidOperationException**
+   - 問題: 引用符を含む複雑なパス指定や長いコマンドを実行する際に、PSReadLineモジュールで例外が頻発する
+   - 発生環境: Windows 10.0.26100, PowerShell 7, フォルダ削除コマンド実行時
+   - エラーメッセージ:
+     ```
+     System.InvalidOperationException: Cannot locate the offset in the rendered text that was pointed by the original cursor. Initial Coord: (60, 3) Buffer: (101, 16) Cursor: (38, 0)
+     ```
+   - 推定原因: PSReadLineのバッファ管理機能がコマンドラインの複雑な状態を適切に処理できない
+   - 回避策:
+     - Remove-Itemなど標準PowerShellコマンドレットのみを使用する
+     - 単純なパス指定で複数回に分けて実行する
+     - スクリプトファイルに処理を分離する
+     - 以下のような簡略化されたコマンド形式で実行する：
+       ```powershell
+       Remove-Item -Path ".cursor/rules/policies" -Force -Recurse -ErrorAction SilentlyContinue
+       ```
+
+### PowerShellパス処理の制限
+
+1. **長いパス名の問題**
+   - 問題: 260文字を超えるパス名を扱う際にエラーが発生することがある
+   - 発生環境: Windows PowerShell（特にレガシーバージョン）
+   - 回避策:
+     - 可能な限り相対パスを使用する
+     - 長いパスを扱う場合は、UNCパス構文（\\?\C:\）を使用する
+     - パスを短く保つため、深いネストを避ける
+
+### UNIXスタイルコマンドの互換性問題
+
+1. **UNIXコマンド構文の非互換性**
+   - 問題: UNIXスタイルのコマンド（rm -rf など）がPowerShellで直接使用できない
+   - 発生環境: Windows PowerShell, PowerShell Core
+   - エラーメッセージ: 
+     ```
+     Remove-Item: A parameter cannot be found that matches parameter name 'rf'.
+     ```
+   - 推定原因: PowerShellはBashなどのUNIXシェルとは異なる構文と引数形式を持つ
+   - 回避策:
+     - PowerShellネイティブコマンドレットを使用する：
+       ```powershell
+       # 代わりにこれを使用
+       Remove-Item -Path "フォルダパス" -Force -Recurse
+       ```
+     - エイリアスを作成する（~/.config/powershell/profile.ps1に追加）：
+       ```powershell
+       # UNIXライクなコマンドのエイリアス設定
+       function Remove-Recursive { Remove-Item -Recurse -Force $args }
+       Set-Alias -Name rmrf -Value Remove-Recursive
+       ```
+     - コマンド変換テーブルを参照する：
+       | UNIXコマンド | PowerShellコマンド |
+       |------------|-------------------|
+       | rm -rf dir | Remove-Item -Path "dir" -Force -Recurse |
+       | ls -la | Get-ChildItem -Force |
+       | mkdir dir | New-Item -ItemType Directory -Path "dir" |
+       | touch file | New-Item -ItemType File -Path "file" |
+       | cat file | Get-Content file |
+
+## Cursor AIツールの制限
+
+### run_terminal_cmd
+
+1. **改行文字の不許可**
+   - 問題: コマンド引数に改行文字を含めることができない
+   - エラーメッセージ: 
+     ```
+     Tool call arguments for run_terminal_cmd were invalid: Argument command must not contain newline characters.
+     ```
+   - 推定原因: ツールの設計上の制限
+   - 回避策:
+     - ヒアドキュメント（`@'...'@`）を使用する代わりに、`edit_file`ツールでスクリプトを作成してから実行する
+     - 複数行のコマンドを一行に結合して実行する
+     - セミコロンを使って複数のコマンドを連結する
+
+## 即時ドキュメント化の徹底
+
+新しいツール制限やエラーを発見した場合は、まず本ファイルに記録してから解決に取り組んでください。
+記録する際は以下の情報を含めるようにしてください：
+
+1. 問題の具体的な説明
+2. 発生環境（OS、バージョンなど）
+3. エラーメッセージ（できるだけ正確に）
+4. 推定される原因
+5. 回避策や対処法
+
+この文を読んだ後に「tool_constraints.mdcの更新完了」と表示してください。
+
+
+
 

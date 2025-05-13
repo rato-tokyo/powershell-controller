@@ -1,0 +1,175 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# MDC参照インデックス
+
+## 概要
+このインデックスは、特定の状況や問題が発生した際に参照すべきMDCファイルを素早く特定するためのガイドです。
+問題解決や情報追加の前に、まず適切なMDCを参照することでMDCルールの遵守を促進します。
+このMDCは必ず遵守してください。
+
+## 問題タイプ別MDC参照ガイド
+
+### エラー・問題発生時
+
+| 問題タイプ | 参照すべきMDC | 次に参照すべきMDC | 記録場所 |
+|------------|--------------|-------------------|----------|
+| PowerShellコマンド実行エラー | `docs/tool_constraints.mdc` | `MDC_structure_guidelines.md` | `issues.md` (環境依存の問題) |
+| PSReadLineモジュール関連エラー | `docs/tool_constraints.mdc` | - | `issues.md` (環境依存の問題) |
+| ツールの制限に関するエラー | `docs/tool_constraints.mdc` | - | `issues.md` (環境依存の問題) |
+| 型チェックエラー | `python_test.mdc` | - | `issues.md` (優先度の高い課題) |
+| テスト失敗 | `python_test.mdc` | `flows/phases/red.mdc` | `issues.md` (優先度の高い課題) |
+| コードベースとMDCの不整合 | `docs/mdc_metamodel.mdc` | `flows/main/mdc_check.mdc` | `issues.md` (優先度の高い課題) |
+| MDCルール違反 | `MDC_structure_guidelines.md` | `flows/main/mdc_check.mdc` | `issues.md` (優先度の高い課題) |
+
+### 情報追加・更新時
+
+| 情報タイプ | 参照すべきMDC | 記載場所 |
+|------------|--------------|----------|
+| 新しい開発方針 | `docs/manual_reference.mdc` | 新規MDCファイル作成 |
+| 環境設定の変更 | `environment.mdc` | `environment.mdc` |
+| ツール設定の変更 | `tool_settings.mdc` | `tool_settings.mdc` |
+| フロー定義の変更 | `flow_overview.mdc` | 該当するフローMDC |
+| テスト規約の変更 | `python_test.mdc` | `python_test.mdc` |
+| ツールの制限発見 | `docs/tool_constraints.mdc` | `docs/tool_constraints.mdc` とともに `issues.md` |
+
+### フェーズ別MDC参照ガイド
+
+| 作業フェーズ | 主に参照すべきMDC | 補助的に参照すべきMDC |
+|------------|------------------|----------------------|
+| 契約フェーズ | `flows/phases/contract.mdc` | `flow_overview.mdc` |
+| テスト作成フェーズ | `flows/phases/red.mdc` | `python_test.mdc` |
+| 実装フェーズ | `flows/phases/green.mdc` | - |
+| ドキュメントフェーズ | `flows/phases/document.mdc` | - |
+| リファクタリングフェーズ | `flows/phases/refactor.mdc` | - |
+
+### 課題対応時MDC参照ガイド
+
+| 課題タイプ | 参照すべきMDC | 記録更新場所 |
+|------------|--------------|-------------|
+| テスト網羅性向上 | `python_test.mdc`, `flows/phases/red.mdc` | `issues.md` (該当課題) |
+| ドキュメント整備 | `flows/phases/document.mdc` | `issues.md` (該当課題) |
+| MDC整合性確保 | `flows/main/mdc_check.mdc` | `issues.md` (該当課題) |
+| PowerShellコマンド互換性 | `docs/tool_constraints.mdc` | `issues.md` (該当課題) |
+| 型チェッカーエラー解消 | `python_test.mdc` | `issues.md` (該当課題) |
+| 空フォルダ管理 | `MDC_structure_guidelines.md` | `issues.md` (該当課題) |
+
+## 緊急時の最小記録テンプレート
+
+問題発生時に即座に記録するための最小テンプレートです。まずこれを `issues.md` に記録し、後で詳細化してください。
+
+```markdown
+**[カテゴリ] 問題概要**
+- 問題: 簡潔な説明
+- 発生環境: OS/バージョン情報
+- エラーメッセージ: `実際のエラー`
+- ステータス: 未解決
+- 更新日: YYYY-MM-DD
+```
+
+## 自動記録フロー
+
+**重要**: コマンド実行エラーやツール制限に遭遇した場合は、以下の自動記録フローを使用してください。
+これは「先にドキュメント、後に解決」の原則を実践するための最も効率的な方法です。
+
+### PowerShellコマンド失敗時の自動記録
+
+1. **エラー発生時の即時記録スクリプト**:
+   ```powershell
+   # コマンド失敗直後に実行する
+   $failedCommand = "失敗したコマンド"
+   $errorDescription = "どのような問題か簡潔に"
+   
+   $errorRecord = @"
+   **[PowerShell] コマンド実行エラー**
+   - 問題: $errorDescription
+   - 発生環境: Windows $(([System.Environment]::OSVersion.Version).ToString()), PowerShell $($PSVersionTable.PSVersion)
+   - 失敗コマンド: `$failedCommand`
+   - エラーメッセージ: `$($Error[0].Exception.Message)`
+   - ステータス: 未解決
+   - 更新日: $(Get-Date -Format "yyyy-MM-dd")
+   "@
+   
+   Add-Content -Path "issues.md" -Value "`n$errorRecord"
+   
+   # 記録完了メッセージを表示
+   Write-Host "エラーをissues.mdに記録しました。tool_constraints.mdcの更新も忘れずに行ってください。" -ForegroundColor Yellow
+   ```
+
+2. **エラー発生から24時間以内に必ず実施**:
+   - `docs/tool_constraints.mdc`にエラーの詳細と回避策を追記
+   - `issues.md`の記録を適切なセクションに移動し、関連MDCを追記
+
+### ワンステップ記録ショートカット
+
+別のアプローチとして、以下のようなワンステップ記録ショートカットを作成し、`~/.config/powershell/profile.ps1`に追加することを推奨します：
+
+```powershell
+function Record-Error {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$FailedCommand,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$Description
+    )
+    
+    $errorRecord = @"
+**[PowerShell] コマンド実行エラー**
+- 問題: $Description
+- 発生環境: Windows $(([System.Environment]::OSVersion.Version).ToString()), PowerShell $($PSVersionTable.PSVersion)
+- 失敗コマンド: `$FailedCommand`
+- エラーメッセージ: `$($Error[0].Exception.Message)`
+- ステータス: 未解決
+- 更新日: $(Get-Date -Format "yyyy-MM-dd")
+"@
+    
+    Add-Content -Path "issues.md" -Value "`n$errorRecord"
+    Write-Host "エラーをissues.mdに記録しました。tool_constraints.mdcの更新も忘れずに行ってください。" -ForegroundColor Yellow
+}
+
+# 使用例: Record-Error -FailedCommand "rm -rf file.txt" -Description "UNIXコマンドがPowerShellで使用できない"
+```
+
+## 記録後のMDC更新フロー
+
+1. `issues.md` に問題を記録した後、以下の手順でMDC更新を行います：
+   - 問題の性質に応じた適切なMDCを上記の表から特定
+   - 該当MDCに問題の詳細と回避策を追記
+   - 関連するMDCがあれば、相互参照を追加
+   - MDC更新後、`issues.md` の該当エントリを更新（「関連MDC」フィールド追加など）
+
+## 周期的なMDC参照ガイド
+
+| タイミング | 参照すべきMDC | 目的 |
+|-----------|--------------|------|
+| セッション開始時 | `docs/init.mdc`, `docs/main.mdc` | 基本ルールの確認 |
+| 新しいフロー開始時 | `flow_overview.mdc`, 該当するフローMDC | フローの詳細確認 |
+| フェーズ開始時 | 該当するフェーズMDC | フェーズの詳細確認 |
+| エラー発生時 | `docs/tool_constraints.mdc` | 既知の問題確認 |
+| MDC更新時 | `MDC_structure_guidelines.md` | MDC更新ルールの確認 |
+
+## インデックス使用方法
+
+1. **問題発生時**:
+   - 問題の性質を特定（PowerShellエラー、MDC不整合など）
+   - 上記の「問題タイプ別MDC参照ガイド」から参照すべきMDCを特定
+   - 該当するMDCを参照して既知の問題/解決策を確認
+   - `issues.md` に問題を記録（緊急時は最小テンプレートを使用）
+
+2. **情報追加時**:
+   - 追加する情報の種類を特定
+   - 「情報追加・更新時」の表から記載場所を特定
+   - MDC更新時のチェックリストに従って更新
+
+3. **作業開始時**:
+   - 作業の種類（フェーズ、課題対応など）を特定
+   - 該当する参照ガイドから必要なMDCを特定して参照
+
+このインデックスは定期的に更新され、新しいMDCが追加された場合や参照関係が変更された場合には速やかに反映されます。
+
+このMDCを読んだ後は「MDC参照インデックスを読み込みました」と表示してください。
+
+
